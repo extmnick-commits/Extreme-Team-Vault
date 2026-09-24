@@ -1,4 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
+import PageHeader from './PageHeader'
 
 type SectionPlaceholderProps = {
   icon: LucideIcon
@@ -13,17 +14,7 @@ export default function SectionPlaceholder({
 }: SectionPlaceholderProps) {
   return (
     <div className="flex flex-col gap-8">
-      <header className="flex items-start gap-4">
-        <span className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900 text-zinc-300">
-          <Icon className="size-5" aria-hidden="true" />
-        </span>
-        <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-50">
-            {title}
-          </h1>
-          <p className="text-zinc-400">{description}</p>
-        </div>
-      </header>
+      <PageHeader icon={Icon} title={title} description={description} />
 
       <div className="flex flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-zinc-800 bg-zinc-900/40 px-6 py-16 text-center">
         <Icon className="size-8 text-zinc-600" aria-hidden="true" />
