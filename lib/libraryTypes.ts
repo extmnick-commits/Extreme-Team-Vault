@@ -57,9 +57,17 @@ export type LibraryView = {
   error?: string
 }
 
-export const GROUP_LABELS: Record<Library, { parent: string; child: string }> = {
-  documents: { parent: 'Category', child: 'Subcategory' },
-  audio: { parent: 'Category', child: 'Album' },
+export const GROUP_LABELS: Record<
+  Library,
+  { parent: string; parentPlural: string; child: string; childPlural: string }
+> = {
+  documents: {
+    parent: 'Category',
+    parentPlural: 'Categories',
+    child: 'Subcategory',
+    childPlural: 'Subcategories',
+  },
+  audio: { parent: 'Category', parentPlural: 'Categories', child: 'Album', childPlural: 'Albums' },
 }
 
 export type GroupOption = {

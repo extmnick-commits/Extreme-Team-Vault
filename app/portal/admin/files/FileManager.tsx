@@ -262,7 +262,7 @@ export default function FileManager({
 
     if (toParent !== null && (model.childIds[id]?.length ?? 0) > 0) {
       reorder.setError(
-        `A ${labels.parent.toLowerCase()} that has ${labels.child.toLowerCase()}s cannot be nested.`,
+        `A ${labels.parent.toLowerCase()} that has ${labels.childPlural.toLowerCase()} cannot be nested.`,
       )
       return
     }
@@ -311,8 +311,8 @@ export default function FileManager({
             <p className="text-sm text-zinc-500">
               {totalFiles} {totalFiles === 1 ? 'file' : 'files'} in {groupOptions.length}{' '}
               {groupOptions.length === 1 ? 'group' : 'groups'}. Drag the handles to reorder files
-              or move them between {labels.parent.toLowerCase()}s and{' '}
-              {labels.child.toLowerCase()}s. Changes appear for the team right away.
+              or move them between {labels.parentPlural.toLowerCase()} and{' '}
+              {labels.childPlural.toLowerCase()}. Changes appear for the team right away.
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -324,6 +324,7 @@ export default function FileManager({
         <ErrorText error={reorder.error} />
 
         <DndContext
+          id={`file-manager-${library}`}
           sensors={sensors}
           collisionDetection={collisionDetection}
           measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}

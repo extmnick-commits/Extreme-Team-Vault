@@ -276,7 +276,7 @@ export function SectionCard({ id, parentId }: { id: string; parentId: string | n
             {confirmDelete ? (
               <span className="flex items-center gap-1 text-xs text-zinc-400">
                 {isParent && childIds.length > 0
-                  ? `Delete? Its ${labels.child.toLowerCase()}s move to top level, files to Other.`
+                  ? `Delete? Its ${labels.childPlural.toLowerCase()} move to top level, files to Other.`
                   : 'Delete? Files move to Other.'}
                 <button
                   type="button"
@@ -402,6 +402,8 @@ export function NewSectionForm({
   compact?: boolean
 }) {
   const { library } = useManager()
+  const labels = GROUP_LABELS[library]
+  const kindName = parentId === null ? labels.parent : labels.child
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
   const { pending, error, run } = useAction()
@@ -442,7 +444,7 @@ export function NewSectionForm({
           autoFocus
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder={`${label.replace(/^New /, '')} name`}
+          placeholder={`${kindName} name`}
           disabled={pending}
           className={`${inputClass} sm:w-64`}
         />
