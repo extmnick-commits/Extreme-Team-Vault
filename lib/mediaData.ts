@@ -11,28 +11,8 @@ export type VideoItem = {
   thumbnailUrl?: string
 }
 
-export type AudioItem = {
-  id: string
-  title: string
-  description: string
-  duration: string
-  cdnUrl: string
-}
-
-export type DocumentFileType = 'PDF' | 'DOCX' | 'XLSX'
-
-export type DocumentItem = {
-  id: string
-  title: string
-  description: string
-  fileType: DocumentFileType
-  fileSize: string
-  cdnUrl: string
-}
-
 const LIBRARY_ID = '123456'
 const THUMBNAIL_HOST = 'https://vz-a1b2c3d4-e5f.b-cdn.net'
-const FILE_CDN = 'https://extreme-team-vault.b-cdn.net'
 
 const thumbnail = (bunnyVideoId: string) =>
   `${THUMBNAIL_HOST}/${bunnyVideoId}/thumbnail.jpg`
@@ -135,86 +115,5 @@ export const videos: VideoItem[] = [
     libraryId: LIBRARY_ID,
     duration: '49:22',
     category: 'archive',
-  },
-]
-
-export const audio: AudioItem[] = [
-  {
-    id: 'aud-001',
-    title: 'Morning Mindset',
-    description: 'A short daily listen to start the day focused and intentional.',
-    duration: '12:30',
-    cdnUrl: `${FILE_CDN}/audio/morning-mindset.mp3`,
-  },
-  {
-    id: 'aud-002',
-    title: 'The Power of Consistency',
-    description: 'Why small daily actions compound into big results over time.',
-    duration: '28:15',
-    cdnUrl: `${FILE_CDN}/audio/power-of-consistency.mp3`,
-  },
-  {
-    id: 'aud-003',
-    title: 'Prospecting on the Go',
-    description: 'Practical tips for starting conversations wherever you are.',
-    duration: '19:48',
-    cdnUrl: `${FILE_CDN}/audio/prospecting-on-the-go.mp3`,
-  },
-  {
-    id: 'aud-004',
-    title: 'Leadership Roundtable',
-    description: 'Top leaders share lessons from building large, lasting teams.',
-    duration: '45:02',
-    cdnUrl: `${FILE_CDN}/audio/leadership-roundtable.mp3`,
-  },
-  {
-    id: 'aud-005',
-    title: 'Follow-Up Fundamentals',
-    description: 'How to follow up without chasing, and when to move on.',
-    duration: '22:36',
-    cdnUrl: `${FILE_CDN}/audio/follow-up-fundamentals.mp3`,
-  },
-]
-
-export const documents: DocumentItem[] = [
-  {
-    id: 'doc-001',
-    title: 'New Member Quick Start Guide',
-    description: 'Everything you need to set up and take action in your first week.',
-    fileType: 'PDF',
-    fileSize: '2.4 MB',
-    cdnUrl: `${FILE_CDN}/docs/quick-start-guide.pdf`,
-  },
-  {
-    id: 'doc-002',
-    title: 'Invitation & Follow-Up Scripts',
-    description: 'Proven scripts for texts, calls, and DMs.',
-    fileType: 'PDF',
-    fileSize: '860 KB',
-    cdnUrl: `${FILE_CDN}/docs/invitation-scripts.pdf`,
-  },
-  {
-    id: 'doc-003',
-    title: 'Compensation Plan Overview',
-    description: 'A plain-language breakdown of ranks, bonuses, and qualifications.',
-    fileType: 'PDF',
-    fileSize: '3.1 MB',
-    cdnUrl: `${FILE_CDN}/docs/compensation-plan.pdf`,
-  },
-  {
-    id: 'doc-004',
-    title: 'Product Reference Sheet',
-    description: 'Key product details and talking points for customer conversations.',
-    fileType: 'PDF',
-    fileSize: '1.2 MB',
-    cdnUrl: `${FILE_CDN}/docs/product-reference.pdf`,
-  },
-  {
-    id: 'doc-005',
-    title: '90-Day Action Plan Worksheet',
-    description: 'Map out your goals and daily activities for the next three months.',
-    fileType: 'PDF',
-    fileSize: '540 KB',
-    cdnUrl: `${FILE_CDN}/docs/90-day-action-plan.pdf`,
   },
 ]

@@ -11,8 +11,12 @@ function getEncodedKey(): Uint8Array {
   return new TextEncoder().encode(secret)
 }
 
+export type SessionRole = 'admin' | 'member'
+
 export type SessionPayload = {
   authenticated: true
+  // Sessions issued before roles existed have no role and are treated as members.
+  role?: SessionRole
   expiresAt: number
 }
 
@@ -38,9 +42,9 @@ export async function decrypt(
   }
 }
 
-export async function createSession(): Promise<void> {
+export async function createSession(role: SessionRole): Promise<void> {
   const expiresAt = Date.now() + SESSION_DURATION_MS
-  const token = await encrypt({ authenticated: true, expiresAt })
+  const token = await encrypt({ authenticated: true, role, expiresAt })
   const cookieStore = await cookies()
 
   cookieStore.set(SESSION_COOKIE, token, {
@@ -61,6 +65,17 @@ export async function getSession(): Promise<SessionPayload | null> {
   const cookieStore = await cookies()
   const token = cookieStore.get(SESSION_COOKIE)?.value
   return decrypt(token)
+}
+
+export async function isAdmin(): Promise<boolean> {
+  const session = await getSession()
+  return session?.role === 'admin'
+}
+
+export async function requireAdmin(): Promise<void> {
+  if (!(await isAdmin())) {
+    throw new Error('Unauthorized: admin access required')
+  }
 }
 
 export { SESSION_COOKIE }

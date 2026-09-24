@@ -1,7 +1,12 @@
 'use server'
 
+import { timingSafeEqual } from 'node:crypto'
 import { redirect } from 'next/navigation'
-import { createSession, deleteSession } from '@/app/lib/session'
+import {
+  createSession,
+  deleteSession,
+  type SessionRole,
+} from '@/app/lib/session'
 
 export type LoginState =
   | { error: string }
@@ -24,12 +29,24 @@ export async function login(
     return { error: 'Server configuration error. Please contact an admin.' }
   }
 
-  if (password !== teamPassword) {
+  const adminPassword = process.env.ADMIN_PASSWORD
+  let role: SessionRole
+  if (adminPassword && safeEqual(password, adminPassword)) {
+    role = 'admin'
+  } else if (safeEqual(password, teamPassword)) {
+    role = 'member'
+  } else {
     return { error: 'Incorrect password. Please try again.' }
   }
 
-  await createSession()
+  await createSession(role)
   redirect('/portal')
+}
+
+function safeEqual(input: string, expected: string): boolean {
+  const a = Buffer.from(input)
+  const b = Buffer.from(expected)
+  return a.length === b.length && timingSafeEqual(a, b)
 }
 
 export async function logout(): Promise<void> {

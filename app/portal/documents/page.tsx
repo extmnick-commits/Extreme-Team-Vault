@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { Download, FileText } from 'lucide-react'
-import { documents } from '@/lib/mediaData'
-import MediaList from '../components/MediaList'
+import { getLibrary } from '@/lib/bunnyStorage'
+import LibrarySections, { countLibraryFiles } from '../components/LibrarySections'
 import PageHeader from '../components/PageHeader'
 import SectionPlaceholder from '../components/SectionPlaceholder'
 
@@ -12,8 +12,10 @@ export const metadata: Metadata = {
 const TITLE = 'PDF Documents'
 const DESCRIPTION = 'Guides, scripts, and reference documents to download.'
 
-export default function DocumentsPage() {
-  if (documents.length === 0) {
+export default async function DocumentsPage() {
+  const documents = await getLibrary('documents')
+
+  if (countLibraryFiles(documents) === 0) {
     return (
       <SectionPlaceholder
         icon={FileText}
@@ -26,9 +28,10 @@ export default function DocumentsPage() {
   return (
     <div className="flex flex-col gap-8">
       <PageHeader icon={FileText} title={TITLE} description={DESCRIPTION} />
-      <MediaList
+      <LibrarySections
+        view={documents}
         icon={FileText}
-        rows={documents.map((doc) => ({
+        toRow={(doc) => ({
           id: doc.id,
           title: doc.title,
           description: doc.description,
@@ -37,7 +40,7 @@ export default function DocumentsPage() {
           actionLabel: `Download ${doc.fileType}`,
           actionIcon: Download,
           download: true,
-        }))}
+        })}
       />
     </div>
   )

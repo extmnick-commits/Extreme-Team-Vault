@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { Menu, PanelLeftClose, PanelLeftOpen, Shield, X } from 'lucide-react'
 import LogoutButton from '@/app/ui/LogoutButton'
-import { NAV_ITEMS } from './navItems'
+import { ADMIN_NAV_ITEMS, NAV_ITEMS, type NavItem } from './navItems'
 
 function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(href + '/')
@@ -32,14 +32,47 @@ function Brand({ collapsed = false }: { collapsed?: boolean }) {
 
 function NavLinks({
   pathname,
+  isAdmin,
   collapsed = false,
 }: {
   pathname: string
+  isAdmin: boolean
   collapsed?: boolean
 }) {
   return (
     <nav className="flex flex-col gap-1 px-3">
-      {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+      <NavLinkList items={NAV_ITEMS} pathname={pathname} collapsed={collapsed} />
+      {isAdmin && (
+        <>
+          <div className="my-3 border-t border-white/10" role="separator" />
+          {!collapsed && (
+            <span className="px-3 pb-1 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+              Admin
+            </span>
+          )}
+          <NavLinkList
+            items={ADMIN_NAV_ITEMS}
+            pathname={pathname}
+            collapsed={collapsed}
+          />
+        </>
+      )}
+    </nav>
+  )
+}
+
+function NavLinkList({
+  items,
+  pathname,
+  collapsed,
+}: {
+  items: NavItem[]
+  pathname: string
+  collapsed: boolean
+}) {
+  return (
+    <>
+      {items.map(({ href, label, icon: Icon }) => {
         const active = isActive(pathname, href)
         return (
           <Link
@@ -60,14 +93,16 @@ function NavLinks({
           </Link>
         )
       })}
-    </nav>
+    </>
   )
 }
 
 export default function PortalSidebar({
   children,
+  isAdmin,
 }: {
   children: React.ReactNode
+  isAdmin: boolean
 }) {
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
@@ -122,7 +157,7 @@ export default function PortalSidebar({
         </div>
 
         <div className="flex flex-1 flex-col overflow-y-auto py-4">
-          <NavLinks pathname={pathname} collapsed={collapsed} />
+          <NavLinks pathname={pathname} isAdmin={isAdmin} collapsed={collapsed} />
           <div className={`mt-auto px-3 pt-4 ${collapsed ? 'flex justify-center' : ''}`}>
             <LogoutButton compact={collapsed} />
           </div>
@@ -174,7 +209,7 @@ export default function PortalSidebar({
           </button>
         </div>
         <div className="flex flex-1 flex-col overflow-y-auto py-4">
-          <NavLinks pathname={pathname} />
+          <NavLinks pathname={pathname} isAdmin={isAdmin} />
           <div className="mt-auto px-3 pt-4">
             <LogoutButton />
           </div>

@@ -11,23 +11,36 @@ function getEncodedKey(): Uint8Array {
   return new TextEncoder().encode(secret)
 }
 
-async function isValidSession(token: string | undefined): Promise<boolean> {
-  if (!token) return false
+type VerifiedSession = { role: 'admin' | 'member' }
+
+async function verifySession(
+  token: string | undefined
+): Promise<VerifiedSession | null> {
+  if (!token) return null
   try {
-    await jwtVerify(token, getEncodedKey(), { algorithms: ['HS256'] })
-    return true
+    const { payload } = await jwtVerify(token, getEncodedKey(), {
+      algorithms: ['HS256'],
+    })
+    return { role: payload.role === 'admin' ? 'admin' : 'member' }
   } catch {
-    return false
+    return null
   }
 }
 
 export async function proxy(request: NextRequest) {
   const token = request.cookies.get(SESSION_COOKIE)?.value
-  const authenticated = await isValidSession(token)
+  const session = await verifySession(token)
 
-  if (!authenticated) {
+  if (!session) {
     // Redirect unauthenticated users to the login page
     return NextResponse.redirect(new URL('/', request.url))
+  }
+
+  const { pathname } = request.nextUrl
+  const isAdminPath =
+    pathname === '/portal/admin' || pathname.startsWith('/portal/admin/')
+  if (isAdminPath && session.role !== 'admin') {
+    return NextResponse.redirect(new URL('/portal', request.url))
   }
 
   return NextResponse.next()

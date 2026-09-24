@@ -1,6 +1,7 @@
 import {
   Archive,
   FileText,
+  FolderCog,
   Headphones,
   Radio,
   Video,
@@ -44,5 +45,14 @@ export const NAV_ITEMS: NavItem[] = [
     label: 'Archived Streams',
     description: 'Replays of past live trainings and opportunity nights.',
     icon: Archive,
+  },
+]
+
+export const ADMIN_NAV_ITEMS: NavItem[] = [
+  {
+    href: '/portal/admin/files',
+    label: 'Manage Files',
+    description: 'Upload, organize, and edit documents and audio.',
+    icon: FolderCog,
   },
 ]
