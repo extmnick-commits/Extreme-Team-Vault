@@ -41,16 +41,62 @@ export type LibraryFile = BunnyFile & {
   customDescription: string
 }
 
-export type LibrarySection = {
+export type LibraryGroup = {
   id: string
   name: string
+  description: string
+  parentId: string | null
   files: LibraryFile[]
+  children: LibraryGroup[]
 }
 
 export type LibraryView = {
-  sections: LibrarySection[]
+  /** Top-level categories; each may contain one level of child groups. */
+  sections: LibraryGroup[]
   unsorted: LibraryFile[]
   error?: string
+}
+
+export const GROUP_LABELS: Record<Library, { parent: string; child: string }> = {
+  documents: { parent: 'Category', child: 'Subcategory' },
+  audio: { parent: 'Category', child: 'Album' },
+}
+
+export type GroupOption = {
+  id: string
+  name: string
+  /** Display label including the parent, e.g. "Training / Prospecting". */
+  label: string
+  parentId: string | null
+}
+
+export function groupOptions(view: LibraryView): GroupOption[] {
+  return view.sections.flatMap((section) => [
+    { id: section.id, name: section.name, label: section.name, parentId: null },
+    ...section.children.map((child) => ({
+      id: child.id,
+      name: child.name,
+      label: `${section.name} / ${child.name}`,
+      parentId: section.id,
+    })),
+  ])
+}
+
+export function countGroupFiles(group: LibraryGroup): number {
+  return group.files.length + group.children.reduce((sum, c) => sum + countGroupFiles(c), 0)
+}
+
+export function countLibraryFiles(view: LibraryView): number {
+  return view.unsorted.length + view.sections.reduce((sum, s) => sum + countGroupFiles(s), 0)
+}
+
+export function findGroup(view: LibraryView, id: string): LibraryGroup | undefined {
+  for (const section of view.sections) {
+    if (section.id === id) return section
+    const child = section.children.find((c) => c.id === id)
+    if (child) return child
+  }
+  return undefined
 }
 
 export type ActionResult = { ok: true } | { ok: false; error: string }

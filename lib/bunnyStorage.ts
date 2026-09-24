@@ -2,6 +2,7 @@ import 'server-only'
 import type {
   Library,
   LibraryFile,
+  LibraryGroup,
   LibraryView,
 } from './libraryTypes'
 
@@ -23,7 +24,13 @@ export type BunnyStorageObject = {
   ReplicatedZones: string | null
 }
 
-export type ManifestSection = { id: string; name: string }
+export type ManifestSection = {
+  id: string
+  name: string
+  description?: string
+  /** Only top-level sections may be parents, so the tree is at most two levels deep. */
+  parentId: string | null
+}
 
 export type ManifestEntry = {
   title?: string
@@ -33,7 +40,7 @@ export type ManifestEntry = {
 }
 
 export type LibraryManifest = {
-  version: 1
+  version: 2
   sections: ManifestSection[]
   files: Record<string, ManifestEntry>
 }
@@ -178,22 +185,50 @@ export async function deleteObject(library: Library, name: string): Promise<void
 // ---------------------------------------------------------------------------
 
 export function emptyManifest(): LibraryManifest {
-  return { version: 1, sections: [], files: {} }
+  return { version: 2, sections: [], files: {} }
+}
+
+function parseSections(value: unknown): ManifestSection[] {
+  if (!Array.isArray(value)) return []
+
+  const raw = value
+    .filter(
+      (s): s is Record<string, unknown> =>
+        typeof s === 'object' &&
+        s !== null &&
+        typeof (s as ManifestSection).id === 'string' &&
+        typeof (s as ManifestSection).name === 'string',
+    )
+    .map<ManifestSection>((s) => ({
+      id: s.id as string,
+      name: s.name as string,
+      description: typeof s.description === 'string' ? s.description : undefined,
+      parentId: typeof s.parentId === 'string' ? s.parentId : null,
+    }))
+
+  // v1 manifests have no parentId, so every section becomes a top-level category.
+  // A parentId pointing at a missing or non-top-level section is dropped.
+  const ids = new Set(raw.map((s) => s.id))
+  const topLevel = new Set(
+    raw.filter((s) => s.parentId === null || !ids.has(s.parentId)).map((s) => s.id),
+  )
+  return raw.map((s) => ({
+    ...s,
+    parentId: s.parentId !== null && topLevel.has(s.parentId) && s.parentId !== s.id
+      ? s.parentId
+      : null,
+  }))
+}
+
+export function isTopLevelSection(manifest: LibraryManifest, id: string): boolean {
+  return manifest.sections.some((s) => s.id === id && s.parentId === null)
 }
 
 function parseManifest(value: unknown): LibraryManifest {
   if (typeof value !== 'object' || value === null) return emptyManifest()
   const raw = value as Partial<LibraryManifest>
 
-  const sections = Array.isArray(raw.sections)
-    ? raw.sections.filter(
-        (s): s is ManifestSection =>
-          typeof s === 'object' &&
-          s !== null &&
-          typeof s.id === 'string' &&
-          typeof s.name === 'string',
-      )
-    : []
+  const sections = parseSections(raw.sections)
 
   const files: Record<string, ManifestEntry> = {}
   if (typeof raw.files === 'object' && raw.files !== null) {
@@ -209,7 +244,7 @@ function parseManifest(value: unknown): LibraryManifest {
     }
   }
 
-  return { version: 1, sections, files }
+  return { version: 2, sections, files }
 }
 
 export async function readManifest(
@@ -288,7 +323,7 @@ function getExtension(name: string): string {
   return dot > 0 ? name.slice(dot + 1) : ''
 }
 
-function formatTitle(name: string): string {
+export function formatTitle(name: string): string {
   const dot = name.lastIndexOf('.')
   const base = dot > 0 ? name.slice(0, dot) : name
   return base
@@ -386,14 +421,21 @@ export async function getLibrary(
       return b.item.DateCreated.localeCompare(a.item.DateCreated)
     }
 
-    const sections = manifest.sections.map((section) => ({
+    const toGroup = (section: ManifestSection): LibraryGroup => ({
       id: section.id,
       name: section.name,
+      description: section.description?.trim() ?? '',
+      parentId: section.parentId,
       files: files
         .filter((f) => f.file.sectionId === section.id)
         .sort(byOrder)
         .map((f) => f.file),
-    }))
+      children: manifest.sections
+        .filter((child) => child.parentId === section.id)
+        .map(toGroup),
+    })
+
+    const sections = manifest.sections.filter((s) => s.parentId === null).map(toGroup)
 
     const unsorted = files
       .filter((f) => f.file.sectionId === null)

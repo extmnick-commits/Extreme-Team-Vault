@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
 import { Download, FileText } from 'lucide-react'
 import { getLibrary } from '@/lib/bunnyStorage'
-import LibrarySections, { countLibraryFiles } from '../components/LibrarySections'
+import { countLibraryFiles } from '@/lib/libraryTypes'
+import LibrarySections from '../components/LibrarySections'
 import PageHeader from '../components/PageHeader'
 import SectionPlaceholder from '../components/SectionPlaceholder'
 

@@ -1,18 +1,10 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { upload } from '@vercel/blob/client'
 import { CheckCircle2, CloudUpload, Loader2, X, XCircle } from 'lucide-react'
-import {
-  ACCEPT_ATTRIBUTE,
-  ALLOWED_CONTENT_TYPES,
-  BLOB_STAGING_PREFIX,
-  MAX_UPLOAD_BYTES,
-  type Library,
-} from '@/lib/libraryTypes'
+import { ACCEPT_ATTRIBUTE, type GroupOption, type Library } from '@/lib/libraryTypes'
 import { finalizeUpload } from './actions'
-
-type SectionOption = { id: string; name: string }
+import { useBlobUpload, validateFile } from './useBlobUpload'
 
 type QueueStatus = 'pending' | 'uploading' | 'processing' | 'done' | 'error'
 
@@ -25,38 +17,16 @@ type QueueItem = {
   error?: string
 }
 
-const MULTIPART_THRESHOLD = 20 * 1024 * 1024
-
-const EXTENSION_TYPES: Record<string, string> = {
-  pdf: 'application/pdf',
-  mp3: 'audio/mpeg',
-  m4a: 'audio/mp4',
-  wav: 'audio/wav',
-}
-
-function contentTypeFor(file: File): string {
-  if (file.type) return file.type
-  const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
-  return EXTENSION_TYPES[ext] ?? 'application/octet-stream'
-}
-
-function validate(file: File, library: Library): string | undefined {
-  if (file.size > MAX_UPLOAD_BYTES) return 'File is larger than 500 MB.'
-  if (!ALLOWED_CONTENT_TYPES[library].includes(contentTypeFor(file))) {
-    return library === 'documents' ? 'Only PDF files are allowed.' : 'Only MP3, M4A, or WAV audio is allowed.'
-  }
-  return undefined
-}
-
 export default function UploadPanel({
   library,
   sections,
   blobAccess,
 }: {
   library: Library
-  sections: SectionOption[]
+  sections: GroupOption[]
   blobAccess: 'public' | 'private'
 }) {
+  const uploadBlob = useBlobUpload(library, blobAccess)
   const inputRef = useRef<HTMLInputElement>(null)
   const [queue, setQueue] = useState<QueueItem[]>([])
   const [sectionId, setSectionId] = useState<string>('')
@@ -70,7 +40,7 @@ export default function UploadPanel({
   function addFiles(files: FileList | null) {
     if (!files) return
     const added = Array.from(files).map<QueueItem>((file) => {
-      const error = validate(file, library)
+      const error = validateFile(file, library)
       return {
         key: `${file.name}-${file.size}-${file.lastModified}-${Math.random()}`,
         file,
@@ -86,19 +56,12 @@ export default function UploadPanel({
   async function uploadOne(item: QueueItem) {
     patch(item.key, { status: 'uploading', progress: 0, error: undefined })
     try {
-      const blob = await upload(`${BLOB_STAGING_PREFIX}${library}/${item.file.name}`, item.file, {
-        access: blobAccess,
-        handleUploadUrl: '/api/admin/upload',
-        clientPayload: JSON.stringify({ library }),
-        contentType: contentTypeFor(item.file),
-        multipart: item.file.size > MULTIPART_THRESHOLD,
-        onUploadProgress: ({ percentage }) => patch(item.key, { progress: percentage }),
-      })
+      const blobUrl = await uploadBlob(item.file, (progress) => patch(item.key, { progress }))
 
       patch(item.key, { status: 'processing', progress: 100 })
       const result = await finalizeUpload({
         library,
-        blobUrl: blob.url,
+        blobUrl,
         originalName: item.file.name,
         title: item.title,
         sectionId: sectionId || null,
@@ -137,7 +100,7 @@ export default function UploadPanel({
           </p>
         </div>
         <label className="flex flex-col gap-1.5 text-xs font-medium uppercase tracking-wide text-zinc-400">
-          Add to section
+          Add to
           <select
             value={sectionId}
             onChange={(e) => setSectionId(e.target.value)}
@@ -147,7 +110,7 @@ export default function UploadPanel({
             <option value="">Other</option>
             {sections.map((s) => (
               <option key={s.id} value={s.id}>
-                {s.name}
+                {s.label}
               </option>
             ))}
           </select>

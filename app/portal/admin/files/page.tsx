@@ -5,7 +5,7 @@ import { AlertCircle, FolderCog } from 'lucide-react'
 import { isAdmin } from '@/app/lib/session'
 import { getBlobAccess } from '@/lib/blobAccess'
 import { getLibrary } from '@/lib/bunnyStorage'
-import { LIBRARIES, LIBRARY_LABELS, isLibrary } from '@/lib/libraryTypes'
+import { LIBRARIES, LIBRARY_LABELS, groupOptions, isLibrary } from '@/lib/libraryTypes'
 import PageHeader from '../../components/PageHeader'
 import FileManager from './FileManager'
 import UploadPanel from './UploadPanel'
@@ -27,14 +27,14 @@ export default async function AdminFilesPage({
   const { library: requested } = await searchParams
   const library = isLibrary(requested) ? requested : 'documents'
   const view = await getLibrary(library, { fresh: true })
-  const sectionOptions = view.sections.map(({ id, name }) => ({ id, name }))
+  const blobAccess = getBlobAccess()
 
   return (
     <div className="flex flex-col gap-8">
       <PageHeader
         icon={FolderCog}
         title="Manage Files"
-        description="Upload, organize, rename, and remove documents and audio for the team."
+        description="Upload documents and audio, organize them into categories, albums, and subcategories, and edit or replace files."
       />
 
       <nav className="flex gap-2 border-b border-zinc-800" aria-label="Library">
@@ -69,11 +69,16 @@ export default async function AdminFilesPage({
       <UploadPanel
         key={`upload-${library}`}
         library={library}
-        sections={sectionOptions}
-        blobAccess={getBlobAccess()}
+        sections={groupOptions(view)}
+        blobAccess={blobAccess}
       />
 
-      <FileManager key={`manager-${library}`} library={library} view={view} />
+      <FileManager
+        key={`manager-${library}`}
+        library={library}
+        view={view}
+        blobAccess={blobAccess}
+      />
     </div>
   )
 }
