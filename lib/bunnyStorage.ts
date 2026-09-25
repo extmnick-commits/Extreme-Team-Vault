@@ -1,6 +1,7 @@
 import 'server-only'
 import {
   documentCoverCdnUrl,
+  encodeBunnyObjectPath,
   isDocumentCoverObjectName,
 } from './documentCovers'
 import type {
@@ -91,7 +92,7 @@ function getConfig(): BunnyConfig {
 }
 
 function objectUrl(config: BunnyConfig, library: Library, name: string): string {
-  return `${config.baseUrl}/${library}/${encodeURIComponent(name)}`
+  return `${config.baseUrl}/${library}/${encodeBunnyObjectPath(name)}`
 }
 
 function cacheOptions(library: Library, { fresh }: ReadOptions) {
@@ -425,7 +426,7 @@ function toLibraryFile(
     description: customDescription || `Uploaded on ${formatDate(item.DateCreated)}`,
     fileType: getFileType(item.ObjectName, library),
     fileSize: formatFileSize(item.Length),
-    cdnUrl: `${cdnUrl}/${library}/${encodeURIComponent(item.ObjectName)}`,
+    cdnUrl: `${cdnUrl}/${library}/${encodeBunnyObjectPath(item.ObjectName)}`,
     thumbnailUrl:
       library === 'documents' && thumbnailName
         ? documentCoverCdnUrl(cdnUrl, library, thumbnailName)

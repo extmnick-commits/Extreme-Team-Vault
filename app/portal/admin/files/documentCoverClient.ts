@@ -23,7 +23,12 @@ export async function postDocumentCoverFile(pdfName: string, file: File) {
 
 export async function fetchPdfBytesForCover(pdfName: string, cdnUrl: string): Promise<ArrayBuffer> {
   const proxyUrl = `/api/admin/documents/${encodeURIComponent(pdfName)}`
-  let response = await fetch(cdnUrl, { credentials: 'omit' })
+  let response: Response
+  try {
+    response = await fetch(cdnUrl, { credentials: 'omit' })
+  } catch {
+    response = await fetch(proxyUrl, { credentials: 'include' })
+  }
   if (!response.ok) {
     response = await fetch(proxyUrl, { credentials: 'include' })
   }

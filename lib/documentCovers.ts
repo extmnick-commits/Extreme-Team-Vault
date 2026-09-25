@@ -13,11 +13,20 @@ export function documentCoverObjectName(pdfObjectName: string): string {
   return `${DOCUMENT_COVER_PREFIX}${hash}.webp`
 }
 
+/** Slashes are path segments on Bunny Storage/CDN, not part of a single encoded name. */
+export function encodeBunnyObjectPath(name: string): string {
+  return name
+    .split('/')
+    .filter((segment) => segment.length > 0)
+    .map(encodeURIComponent)
+    .join('/')
+}
+
 export function documentCoverCdnUrl(
   cdnBase: string,
   library: string,
   thumbnailName: string,
 ): string {
   const cdn = cdnBase.replace(/\/+$/, '')
-  return `${cdn}/${library}/${encodeURIComponent(thumbnailName)}`
+  return `${cdn}/${library}/${encodeBunnyObjectPath(thumbnailName)}`
 }
