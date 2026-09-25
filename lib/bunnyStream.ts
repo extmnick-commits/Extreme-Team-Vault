@@ -5,6 +5,7 @@ import {
   VIDEO_STATUS,
   formatVideoDuration,
   isVideoCategory,
+  primaryStreamThumbnailUrl,
   type AdminVideo,
   type VideoCategory,
   type VideoItem,
@@ -41,9 +42,51 @@ const DESCRIPTION_TAG = 'description'
 function readConfig(): StreamConfig | null {
   const libraryId = process.env.BUNNY_STREAM_LIBRARY_ID?.trim()
   const apiKey = process.env.BUNNY_STREAM_API_KEY?.trim()
+  // Pull zone base, e.g. https://vz-xxxxx.b-cdn.net (no trailing slash).
   const cdnUrl = process.env.NEXT_PUBLIC_BUNNY_STREAM_CDN_URL?.replace(/\/+$/, '') ?? ''
   if (!libraryId || !apiKey) return null
   return { libraryId, apiKey, cdnUrl }
+}
+
+let libraryCdnBaseCache: string | null | undefined
+
+function hostnameFromLibraryRecord(value: unknown): string {
+  if (!isRecord(value)) return ''
+  const candidates = [
+    value.Hostname,
+    value.hostname,
+    value.CDNHostname,
+    value.cdnHostname,
+    value.PullZoneHostname,
+  ]
+  for (const entry of candidates) {
+    if (typeof entry === 'string' && entry.trim()) return entry.trim()
+  }
+  if (isRecord(value.PullZone) && typeof value.PullZone.Hostname === 'string') {
+    return value.PullZone.Hostname.trim()
+  }
+  return ''
+}
+
+async function resolveStreamCdnBase(config: StreamConfig): Promise<string> {
+  if (config.cdnUrl) return config.cdnUrl
+  if (libraryCdnBaseCache !== undefined) return libraryCdnBaseCache ?? ''
+
+  try {
+    const response = await streamFetch('', { fresh: true })
+    const hostname = hostnameFromLibraryRecord(await response.json())
+    if (hostname) {
+      libraryCdnBaseCache = hostname.startsWith('http')
+        ? hostname.replace(/\/+$/, '')
+        : `https://${hostname.replace(/\/+$/, '')}`
+      return libraryCdnBaseCache
+    }
+  } catch (error) {
+    console.warn('[bunnyStream] Could not resolve Stream CDN hostname from library API:', error)
+  }
+
+  libraryCdnBaseCache = null
+  return ''
 }
 
 function getConfig(): StreamConfig {
@@ -139,18 +182,13 @@ function descriptionOf(video: StreamVideo): string {
   return video.metaTags.find((tag) => tag.property === DESCRIPTION_TAG)?.value ?? ''
 }
 
-function thumbnailOf(cdnUrl: string, video: StreamVideo): string | undefined {
-  if (!cdnUrl) return undefined
-  const file = video.thumbnailFileName || 'thumbnail.jpg'
-  return `${cdnUrl}/${video.guid}/${file}`
-}
-
 function toAdminVideo(
   video: StreamVideo,
   collections: Map<string, VideoCategory>,
   libraryId: string,
   cdnUrl: string,
 ): AdminVideo {
+  const thumbnailFileName = video.thumbnailFileName || 'thumbnail.jpg'
   return {
     id: video.guid,
     title: video.title,
@@ -159,7 +197,8 @@ function toAdminVideo(
     libraryId,
     duration: formatVideoDuration(video.length),
     category: collections.get(video.collectionId) ?? null,
-    thumbnailUrl: thumbnailOf(cdnUrl, video),
+    thumbnailUrl: primaryStreamThumbnailUrl(libraryId, video.guid, thumbnailFileName, cdnUrl),
+    thumbnailFileName,
     status: video.status,
     encodeProgress: video.encodeProgress,
   }
@@ -248,14 +287,15 @@ export async function getAdminVideos(options: ReadOptions = {}): Promise<VideoVi
   }
 
   try {
-    const [videos, collections] = await Promise.all([
+    const [videos, collections, cdnUrl] = await Promise.all([
       listAllVideos(options),
       listCollections(options),
+      resolveStreamCdnBase(config),
     ])
     const categories = collectionCategoryMap(collections)
     return {
       videos: videos.map((video) =>
-        toAdminVideo(video, categories, config.libraryId, config.cdnUrl),
+        toAdminVideo(video, categories, config.libraryId, cdnUrl),
       ),
     }
   } catch (error) {
@@ -351,4 +391,33 @@ export async function deleteVideo(videoId: string): Promise<void> {
     method: 'DELETE',
     fresh: true,
   })
+}
+
+export async function uploadVideoThumbnail(
+  videoId: string,
+  image: Buffer,
+  contentType: string,
+): Promise<void> {
+  const { libraryId, apiKey } = getConfig()
+  const response = await fetch(
+    `${API_BASE}/${libraryId}/videos/${encodeURIComponent(videoId)}/thumbnail`,
+    {
+      method: 'POST',
+      headers: {
+        AccessKey: apiKey,
+        'Content-Type': contentType || 'application/octet-stream',
+      },
+      body: new Uint8Array(image),
+      cache: 'no-store',
+    },
+  )
+
+  if (!response.ok) {
+    const detail = await response.text().catch(() => '')
+    throw new BunnyStreamError(
+      `Failed to upload thumbnail (${response.status} ${response.statusText})${
+        detail ? `: ${detail.slice(0, 200)}` : ''
+      }`,
+    )
+  }
 }

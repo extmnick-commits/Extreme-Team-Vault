@@ -1,11 +1,13 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { CheckCircle2, CloudUpload, Loader2, X, XCircle } from 'lucide-react'
+import { CheckCircle2, CloudUpload, ImagePlus, Loader2, X, XCircle } from 'lucide-react'
 import {
+  THUMBNAIL_ACCEPT,
   VIDEO_ACCEPT,
   VIDEO_CATEGORIES,
   VIDEO_CATEGORY_LABELS,
+  validateThumbnailFile,
   validateVideoFile,
   type VideoCategory,
 } from '@/lib/videoTypes'
@@ -17,6 +19,8 @@ type QueueItem = {
   key: string
   file: File
   title: string
+  thumbnail?: File
+  thumbnailPreview?: string
   status: QueueStatus
   progress: number
   error?: string
@@ -32,6 +36,40 @@ export default function VideoUploadPanel() {
 
   function patch(key: string, changes: Partial<QueueItem>) {
     setQueue((items) => items.map((item) => (item.key === key ? { ...item, ...changes } : item)))
+  }
+
+  function revokePreview(preview?: string) {
+    if (preview) URL.revokeObjectURL(preview)
+  }
+
+  function setThumbnail(key: string, file: File | null) {
+    setQueue((items) =>
+      items.map((item) => {
+        if (item.key !== key) return item
+        revokePreview(item.thumbnailPreview)
+        if (!file) {
+          return { ...item, thumbnail: undefined, thumbnailPreview: undefined }
+        }
+        const thumbnailError = validateThumbnailFile(file)
+        if (thumbnailError) {
+          return { ...item, thumbnail: undefined, thumbnailPreview: undefined, error: thumbnailError }
+        }
+        return {
+          ...item,
+          thumbnail: file,
+          thumbnailPreview: URL.createObjectURL(file),
+          error: item.error && validateVideoFile(item.file) ? item.error : undefined,
+        }
+      }),
+    )
+  }
+
+  function removeFromQueue(key: string) {
+    setQueue((items) => {
+      const item = items.find((i) => i.key === key)
+      revokePreview(item?.thumbnailPreview)
+      return items.filter((i) => i.key !== key)
+    })
   }
 
   function addFiles(files: FileList | null) {
@@ -54,8 +92,10 @@ export default function VideoUploadPanel() {
     patch(item.key, { status: 'uploading', progress: 0, error: undefined })
     const title = item.title.trim() || item.file.name.replace(/\.[^.]+$/, '')
     try {
-      await uploadVideo(item.file, { title, category }, (progress) =>
-        patch(item.key, { progress }),
+      await uploadVideo(
+        item.file,
+        { title, category, thumbnail: item.thumbnail },
+        (progress) => patch(item.key, { progress }),
       )
       patch(item.key, { status: 'done', progress: 100 })
     } catch (error) {
@@ -82,7 +122,8 @@ export default function VideoUploadPanel() {
         <div>
           <h2 className="text-lg font-semibold text-ink">Upload videos</h2>
           <p className="text-sm text-ink-muted">
-            MP4, MOV, or WebM, up to 5 GB each. Files go straight to Bunny Stream.
+            MP4, MOV, or WebM, up to 5 GB each. Add an optional JPG, PNG, or WebP thumbnail per
+            video for the training and archive galleries.
           </p>
         </div>
         <label className="flex flex-col gap-1.5 text-xs font-medium uppercase tracking-wide text-ink-muted">
@@ -146,8 +187,17 @@ export default function VideoUploadPanel() {
           {queue.map((item) => (
             <li
               key={item.key}
-              className="flex flex-col gap-2 rounded-lg border border-line bg-zinc-50 p-3 sm:flex-row sm:items-center"
+              className="flex flex-col gap-3 rounded-lg border border-line bg-zinc-50 p-3 sm:flex-row sm:items-start"
             >
+              {item.status === 'pending' && (
+                <ThumbnailPicker
+                  preview={item.thumbnailPreview}
+                  disabled={running}
+                  onPick={(file) => setThumbnail(item.key, file)}
+                  onClear={() => setThumbnail(item.key, null)}
+                />
+              )}
+
               <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                 <span className="truncate text-sm text-ink" title={item.file.name}>
                   {item.file.name}
@@ -173,7 +223,7 @@ export default function VideoUploadPanel() {
                 )}
                 {item.error && <p className="text-xs text-red-600">{item.error}</p>}
               </div>
-              <div className="flex shrink-0 items-center gap-2 text-xs text-ink-muted">
+              <div className="flex shrink-0 items-center gap-2 self-center text-xs text-ink-muted sm:self-start sm:pt-1">
                 {item.status === 'uploading' && `${Math.round(item.progress)}%`}
                 {item.status === 'done' && (
                   <>
@@ -186,7 +236,7 @@ export default function VideoUploadPanel() {
                 {(item.status === 'pending' || item.status === 'done' || item.status === 'error') && (
                   <button
                     type="button"
-                    onClick={() => setQueue((items) => items.filter((i) => i.key !== item.key))}
+                    onClick={() => removeFromQueue(item.key)}
                     disabled={running}
                     aria-label={`Remove ${item.file.name}`}
                     className="rounded-md p-1 text-ink-subtle transition hover:bg-zinc-100 hover:text-ink"
@@ -214,5 +264,62 @@ export default function VideoUploadPanel() {
         </div>
       )}
     </section>
+  )
+}
+
+function ThumbnailPicker({
+  preview,
+  disabled,
+  onPick,
+  onClear,
+}: {
+  preview?: string
+  disabled: boolean
+  onPick: (file: File) => void
+  onClear: () => void
+}) {
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  return (
+    <div className="relative aspect-video w-full shrink-0 overflow-hidden rounded-lg border border-line bg-surface sm:w-36">
+      {preview ? (
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={preview} alt="" className="size-full object-cover" />
+          {!disabled && (
+            <button
+              type="button"
+              onClick={onClear}
+              aria-label="Remove thumbnail"
+              className="absolute top-1 right-1 rounded-md bg-black/60 p-1 text-white transition hover:bg-black/80"
+            >
+              <X className="size-3.5" aria-hidden="true" />
+            </button>
+          )}
+        </>
+      ) : (
+        <label
+          className={`flex size-full cursor-pointer flex-col items-center justify-center gap-1 px-2 text-center text-xs text-ink-muted transition ${
+            disabled ? 'cursor-not-allowed opacity-50' : 'hover:bg-violet-50 hover:text-violet-700'
+          }`}
+        >
+          <ImagePlus className="size-5 text-violet-400" aria-hidden="true" />
+          <span className="font-medium">Thumbnail</span>
+          <span className="text-[10px] leading-tight text-ink-subtle">Optional · 16:9 works best</span>
+          <input
+            ref={inputRef}
+            type="file"
+            accept={THUMBNAIL_ACCEPT}
+            disabled={disabled}
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (file) onPick(file)
+              e.target.value = ''
+            }}
+          />
+        </label>
+      )}
+    </div>
   )
 }

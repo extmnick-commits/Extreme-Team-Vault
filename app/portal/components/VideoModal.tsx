@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
-import { Clock, X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Clock, Play, X } from 'lucide-react'
 import type { VideoItem } from '@/lib/videoTypes'
+import VideoPoster from './VideoPoster'
 
 type VideoModalProps = {
   video: VideoItem
@@ -11,6 +12,7 @@ type VideoModalProps = {
 
 export default function VideoModal({ video, onClose }: VideoModalProps) {
   const closeButtonRef = useRef<HTMLButtonElement>(null)
+  const [isPlaying, setIsPlaying] = useState(false)
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow
@@ -29,6 +31,7 @@ export default function VideoModal({ video, onClose }: VideoModalProps) {
   }, [onClose])
 
   const titleId = `video-modal-title-${video.id}`
+  const embedSrc = `https://player.mediadelivery.net/embed/${video.libraryId}/${video.bunnyVideoId}?autoplay=true`
 
   return (
     <div
@@ -39,18 +42,39 @@ export default function VideoModal({ video, onClose }: VideoModalProps) {
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="flex max-h-full w-full max-w-5xl flex-col overflow-y-auto bg-surface pb-[env(safe-area-inset-bottom)] shadow-2xl sm:rounded-2xl sm:pb-0"
+        className="flex max-h-full w-full max-w-5xl flex-col overflow-y-auto bg-surface pb-[env(safe-area-inset-bottom)] shadow-2xl sm:max-h-[90vh] sm:rounded-2xl sm:pb-0"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="relative aspect-video w-full shrink-0 bg-black">
-          <iframe
-            src={`https://player.mediadelivery.net/embed/${video.libraryId}/${video.bunnyVideoId}`}
-            title={video.title}
-            allow="autoplay; fullscreen; picture-in-picture"
-            allowFullScreen
-            loading="lazy"
-            className="absolute inset-0 size-full border-0"
-          />
+          {isPlaying ? (
+            <iframe
+              src={embedSrc}
+              title={video.title}
+              allow="autoplay; fullscreen; picture-in-picture"
+              allowFullScreen
+              className="absolute inset-0 size-full border-0"
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setIsPlaying(true)}
+              className="group/player absolute inset-0 flex w-full items-center justify-center"
+              aria-label={`Play ${video.title}`}
+            >
+              <VideoPoster
+                video={video}
+                sizes="100vw"
+                priority
+                hidePlayOverlay
+                className="absolute inset-0 h-full"
+              />
+              <span className="absolute inset-0 flex items-center justify-center bg-black/20 transition group-hover/player:bg-black/30">
+                <span className="flex size-16 min-h-11 min-w-11 items-center justify-center rounded-full bg-white/95 text-violet-600 shadow-lg shadow-black/25 transition group-hover/player:scale-105">
+                  <Play className="size-7 translate-x-0.5 fill-current" aria-hidden="true" />
+                </span>
+              </span>
+            </button>
+          )}
         </div>
 
         <div className="flex items-start justify-between gap-4 p-4 sm:p-6">

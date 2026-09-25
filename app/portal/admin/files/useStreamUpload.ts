@@ -4,7 +4,12 @@ import { useCallback } from 'react'
 import * as tus from 'tus-js-client'
 import type { VideoCategory } from '@/lib/videoTypes'
 import { contentTypeForVideo } from '@/lib/videoTypes'
-import { createStreamUpload, deleteVideo, refreshVideos } from './videoActions'
+import {
+  createStreamUpload,
+  deleteVideo,
+  refreshVideos,
+  uploadVideoThumbnail,
+} from './videoActions'
 
 const TUS_ENDPOINT = 'https://video.bunnycdn.com/tusupload'
 
@@ -16,7 +21,7 @@ export function useStreamUpload() {
   return useCallback(
     async (
       file: File,
-      options: { title: string; category: VideoCategory },
+      options: { title: string; category: VideoCategory; thumbnail?: File },
       onProgress?: (percentage: number) => void,
     ): Promise<void> => {
       const created = await createStreamUpload({
@@ -49,6 +54,15 @@ export function useStreamUpload() {
           })
           upload.start()
         })
+
+        if (options.thumbnail) {
+          const formData = new FormData()
+          formData.set('videoId', created.videoId)
+          formData.set('thumbnail', options.thumbnail)
+          const thumbnailResult = await uploadVideoThumbnail(formData)
+          if (!thumbnailResult.ok) throw new Error(thumbnailResult.error)
+        }
+
         await refreshVideos()
       } catch (error) {
         await deleteVideo(created.videoId).catch(() => undefined)

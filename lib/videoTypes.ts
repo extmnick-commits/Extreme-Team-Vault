@@ -20,6 +20,38 @@ export type VideoItem = {
   duration: string
   category: VideoCategory
   thumbnailUrl?: string
+  /** Bunny Stream thumbnail file name (e.g. thumbnail.jpg). Used for CDN fallback URLs. */
+  thumbnailFileName?: string
+}
+
+const DEFAULT_THUMBNAIL_FILE = 'thumbnail.jpg'
+
+/** Ordered thumbnail URLs: pull zone CDN first, then Bunny mediadelivery thumb host. */
+export function bunnyStreamThumbnailCandidates(
+  item: Pick<VideoItem, 'libraryId' | 'bunnyVideoId' | 'thumbnailUrl' | 'thumbnailFileName'>,
+): string[] {
+  const fromUrl = item.thumbnailUrl?.split('/').pop()?.split('?')[0]?.trim()
+  const file = item.thumbnailFileName?.trim() || fromUrl || DEFAULT_THUMBNAIL_FILE
+  const urls: string[] = []
+
+  if (item.thumbnailUrl) urls.push(item.thumbnailUrl)
+
+  const mediadelivery = `https://thumb.mediadelivery.net/${item.libraryId}/${item.bunnyVideoId}/${file}`
+  if (!urls.includes(mediadelivery)) urls.push(mediadelivery)
+
+  return urls
+}
+
+export function primaryStreamThumbnailUrl(
+  libraryId: string,
+  videoId: string,
+  thumbnailFileName: string,
+  cdnBaseUrl: string,
+): string {
+  const file = thumbnailFileName.trim() || DEFAULT_THUMBNAIL_FILE
+  const cdn = cdnBaseUrl.replace(/\/+$/, '')
+  if (cdn) return `${cdn}/${videoId}/${file}`
+  return `https://thumb.mediadelivery.net/${libraryId}/${videoId}/${file}`
 }
 
 /** Stream encode status. 4 = finished and ready to play. */
@@ -100,6 +132,38 @@ export function validateVideoFile(file: File): string | undefined {
     !VIDEO_EXTENSIONS.has(ext)
   ) {
     return 'Only MP4, MOV, or WebM video is allowed.'
+  }
+  return undefined
+}
+
+export const MAX_THUMBNAIL_BYTES = 5 * 1024 * 1024
+
+export const ALLOWED_THUMBNAIL_TYPES = ['image/jpeg', 'image/png', 'image/webp'] as const
+
+export const THUMBNAIL_ACCEPT = '.jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp'
+
+const THUMBNAIL_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'webp'])
+
+export function contentTypeForThumbnail(file: File): string {
+  if (file.type && (ALLOWED_THUMBNAIL_TYPES as readonly string[]).includes(file.type)) {
+    return file.type
+  }
+  const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
+  if (ext === 'jpg' || ext === 'jpeg') return 'image/jpeg'
+  if (ext === 'png') return 'image/png'
+  if (ext === 'webp') return 'image/webp'
+  return 'application/octet-stream'
+}
+
+export function validateThumbnailFile(file: File): string | undefined {
+  if (file.size > MAX_THUMBNAIL_BYTES) return 'Thumbnail must be 5 MB or smaller.'
+  const type = contentTypeForThumbnail(file)
+  const ext = file.name.split('.').pop()?.toLowerCase() ?? ''
+  if (
+    !(ALLOWED_THUMBNAIL_TYPES as readonly string[]).includes(type) &&
+    !THUMBNAIL_EXTENSIONS.has(ext)
+  ) {
+    return 'Use a JPG, PNG, or WebP image for the thumbnail.'
   }
   return undefined
 }

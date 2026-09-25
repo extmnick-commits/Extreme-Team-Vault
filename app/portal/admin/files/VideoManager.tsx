@@ -1,18 +1,20 @@
 'use client'
 
 import { useState } from 'react'
-import Image from 'next/image'
-import { Clock, Loader2, Trash2, Video } from 'lucide-react'
+import { Clock, ImagePlus, Loader2, Trash2, Video } from 'lucide-react'
+import VideoPoster from '../../components/VideoPoster'
 import {
   VIDEO_CATEGORIES,
   VIDEO_CATEGORY_LABELS,
+  THUMBNAIL_ACCEPT,
   VIDEO_STATUS,
+  validateThumbnailFile,
   videoStatusLabel,
   type AdminVideo,
   type VideoCategory,
   type VideoView,
 } from '@/lib/videoTypes'
-import { deleteVideo, moveVideo, updateVideo } from './videoActions'
+import { deleteVideo, moveVideo, updateVideo, uploadVideoThumbnail } from './videoActions'
 import {
   ErrorText,
   dangerButtonClass,
@@ -92,22 +94,77 @@ function VideoRow({ video }: { video: AdminVideo }) {
   const [title, setTitle] = useState(video.title)
   const [description, setDescription] = useState(video.description)
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const { pending, error, run } = useAction()
+  const [thumbnailVersion, setThumbnailVersion] = useState(0)
+  const [localPreview, setLocalPreview] = useState<string | null>(null)
+  const { pending, error, run, setError } = useAction()
   const dirty = title !== video.title || description !== video.description
-  const ready = video.status === VIDEO_STATUS.finished
   const encoding =
     video.status === VIDEO_STATUS.processing || video.status === VIDEO_STATUS.transcoding
+  const posterVideo = {
+    title: video.title,
+    libraryId: video.libraryId,
+    bunnyVideoId: video.bunnyVideoId,
+    thumbnailFileName: video.thumbnailFileName,
+    thumbnailUrl: video.thumbnailUrl
+      ? `${video.thumbnailUrl}?v=${thumbnailVersion}`
+      : undefined,
+  }
+
+  function uploadThumbnail(file: File) {
+    const validationError = validateThumbnailFile(file)
+    if (validationError) {
+      setError(validationError)
+      return
+    }
+    if (localPreview) URL.revokeObjectURL(localPreview)
+    const preview = URL.createObjectURL(file)
+    setLocalPreview(preview)
+
+    const formData = new FormData()
+    formData.set('videoId', video.id)
+    formData.set('thumbnail', file)
+    run(
+      () => uploadVideoThumbnail(formData),
+      () => {
+        URL.revokeObjectURL(preview)
+        setLocalPreview(null)
+        setThumbnailVersion((version) => version + 1)
+      },
+      () => {
+        URL.revokeObjectURL(preview)
+        setLocalPreview(null)
+      },
+    )
+  }
 
   return (
     <li className="flex flex-col gap-3 p-4 lg:flex-row lg:items-start">
       <div className="relative aspect-video w-full shrink-0 overflow-hidden rounded-lg bg-zinc-100 lg:w-44">
-        {video.thumbnailUrl && ready ? (
-          <Image src={video.thumbnailUrl} alt="" fill sizes="176px" className="object-cover" />
+        {localPreview ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={localPreview} alt="" className="size-full object-cover" />
         ) : (
-          <span className="flex size-full items-center justify-center">
-            <Video className="size-6 text-violet-300" aria-hidden="true" />
-          </span>
+          <VideoPoster video={posterVideo} sizes="176px" hidePlayOverlay className="h-full" />
         )}
+        <label
+          className={`absolute inset-x-0 bottom-0 z-10 flex cursor-pointer items-center justify-center gap-1.5 bg-black/55 px-2 py-1.5 text-xs font-medium text-white backdrop-blur-sm transition ${
+            pending ? 'cursor-not-allowed opacity-60' : 'hover:bg-black/70'
+          }`}
+        >
+          <ImagePlus className="size-3.5" aria-hidden="true" />
+          {localPreview || video.thumbnailUrl ? 'Change thumbnail' : 'Add thumbnail'}
+          <input
+            type="file"
+            accept={THUMBNAIL_ACCEPT}
+            disabled={pending}
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (file) uploadThumbnail(file)
+              e.target.value = ''
+            }}
+          />
+        </label>
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col gap-2">

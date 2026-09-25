@@ -7,13 +7,16 @@ import {
   deleteVideo as deleteStreamVideo,
   signTusUpload,
   updateVideoDetails,
+  uploadVideoThumbnail as uploadStreamVideoThumbnail,
   VIDEOS_TAG,
 } from '@/lib/bunnyStream'
 import type { ActionResult } from '@/lib/libraryTypes'
 import {
   MAX_VIDEO_DESCRIPTION_LENGTH,
   MAX_VIDEO_TITLE_LENGTH,
+  contentTypeForThumbnail,
   isVideoCategory,
+  validateThumbnailFile,
   type VideoCategory,
 } from '@/lib/videoTypes'
 
@@ -110,5 +113,21 @@ export async function deleteVideo(videoId: string): Promise<ActionResult> {
   return run(async () => {
     assertVideoId(videoId)
     await deleteStreamVideo(videoId)
+  })
+}
+
+export async function uploadVideoThumbnail(formData: FormData): Promise<ActionResult> {
+  return run(async () => {
+    const videoId = formData.get('videoId')
+    assertVideoId(videoId)
+    const file = formData.get('thumbnail')
+    if (!(file instanceof File) || file.size === 0) {
+      throw new ValidationError('Choose a thumbnail image.')
+    }
+    const validationError = validateThumbnailFile(file)
+    if (validationError) throw new ValidationError(validationError)
+
+    const bytes = Buffer.from(await file.arrayBuffer())
+    await uploadStreamVideoThumbnail(videoId, bytes, contentTypeForThumbnail(file))
   })
 }
