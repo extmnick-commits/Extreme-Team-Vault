@@ -15,6 +15,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Extreme Team Vault",
   description: "Protected team portal",
+  icons: {
+    icon: "/pulido-power-house-logo.jpg",
+    apple: "/pulido-power-house-logo.jpg",
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

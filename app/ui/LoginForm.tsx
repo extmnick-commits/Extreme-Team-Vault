@@ -2,7 +2,8 @@
 
 import { useActionState } from 'react'
 import { login } from '@/app/actions/auth'
-import { Shield, Lock, AlertCircle, Loader2 } from 'lucide-react'
+import { Lock, AlertCircle, Loader2 } from 'lucide-react'
+import PulidoLogo from '@/app/ui/PulidoLogo'
 
 export default function LoginForm() {
   const [state, action, isPending] = useActionState(login, undefined)
@@ -31,17 +32,13 @@ export default function LoginForm() {
           <div className="px-6 pb-8 pt-10 sm:px-8">
             {/* Header */}
             <div className="mb-8 flex flex-col items-center gap-3 text-center">
-              <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-violet-600 shadow-md shadow-violet-600/30">
-                <Shield className="h-7 w-7 text-white" strokeWidth={1.75} />
-              </div>
-              <div>
-                <h1 className="text-xl font-semibold tracking-tight text-ink">
-                  Extreme Team Vault
-                </h1>
-                <p className="mt-1 text-sm text-ink-muted">
-                  Enter the team password to continue
-                </p>
-              </div>
+              <PulidoLogo size={128} className="object-contain" priority />
+              <h1 className="text-xl font-semibold tracking-tight text-ink">
+                Extreme Team Vault
+              </h1>
+              <p className="text-sm text-ink-muted">
+                Enter the team password to continue
+              </p>
             </div>
 
             {/* Form */}

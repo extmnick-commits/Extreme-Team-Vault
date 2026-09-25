@@ -3,8 +3,9 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { Menu, PanelLeftClose, PanelLeftOpen, Shield, X } from 'lucide-react'
+import { Menu, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react'
 import LogoutButton from '@/app/ui/LogoutButton'
+import PulidoLogo from '@/app/ui/PulidoLogo'
 import { ADMIN_NAV_ITEMS, NAV_ITEMS, type NavItem } from './navItems'
 
 function isActive(pathname: string, href: string) {
@@ -15,12 +16,13 @@ function Brand({ collapsed = false }: { collapsed?: boolean }) {
   return (
     <Link
       href="/portal/dashboard"
-      className="flex min-w-0 items-center gap-3"
+      className="flex min-w-0 items-center gap-2.5"
       title={collapsed ? 'Extreme Team Vault' : undefined}
     >
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-violet-600 shadow-sm shadow-violet-600/30">
-        <Shield className="h-5 w-5 text-white" strokeWidth={1.75} />
-      </span>
+      <PulidoLogo
+        size={collapsed ? 32 : 44}
+        className="shrink-0 object-contain"
+      />
       {!collapsed && (
         <span className="truncate text-sm font-semibold tracking-tight text-ink">
           Extreme Team Vault
@@ -136,11 +138,13 @@ export default function PortalSidebar({
         }`}
       >
         <div
-          className={`flex h-16 items-center border-b border-line px-4 ${
-            collapsed ? 'justify-center' : 'justify-between gap-2'
+          className={`flex border-b border-line px-2 ${
+            collapsed
+              ? 'flex-col items-center gap-1 py-3'
+              : 'h-16 items-center justify-between gap-2 px-4'
           }`}
         >
-          {!collapsed && <Brand />}
+          <Brand collapsed={collapsed} />
           <button
             type="button"
             onClick={() => setCollapsed((c) => !c)}
