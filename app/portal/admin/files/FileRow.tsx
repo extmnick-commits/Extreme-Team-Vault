@@ -107,8 +107,8 @@ export default function FileRow({
     <li
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={`flex gap-3 bg-zinc-900/60 p-4 ${isDragging ? 'relative z-10 opacity-40' : ''} ${
-        selected ? 'bg-violet-500/5' : ''
+      className={`flex gap-3 p-4 ${isDragging ? 'relative z-10 opacity-40' : ''} ${
+        selected ? 'bg-violet-50/60' : 'bg-surface'
       }`}
     >
       <div className="flex shrink-0 flex-col items-center gap-2 pt-1">
@@ -117,7 +117,7 @@ export default function FileRow({
           ref={setActivatorNodeRef}
           {...attributes}
           {...listeners}
-          className="cursor-grab touch-none rounded p-0.5 text-zinc-500 hover:text-zinc-200 active:cursor-grabbing"
+          className="cursor-grab touch-none rounded p-0.5 text-ink-subtle hover:text-ink active:cursor-grabbing"
           aria-label={`Drag ${file.title}`}
         >
           <GripVertical className="size-4" />
@@ -127,14 +127,14 @@ export default function FileRow({
           checked={selected}
           onChange={onToggleSelect}
           aria-label={`Select ${file.title}`}
-          className="size-4 accent-violet-500"
+          className="size-4 accent-violet-600"
         />
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col gap-3 lg:flex-row lg:items-start">
         <div className="flex min-w-0 flex-1 flex-col gap-2">
-          <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-500">
-            <span className="rounded-full border border-zinc-700 bg-zinc-800/60 px-2 py-0.5 font-medium text-zinc-300 tabular-nums">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-ink-subtle">
+            <span className="rounded-full bg-zinc-100 px-2 py-0.5 font-medium text-ink-muted tabular-nums">
               {file.fileType} · {file.fileSize}
             </span>
             <span className="truncate" title={file.name}>
@@ -144,7 +144,7 @@ export default function FileRow({
               href={file.cdnUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-violet-300 hover:underline"
+              className="inline-flex items-center gap-1 text-violet-600 hover:underline"
             >
               Open <ExternalLink className="size-3" aria-hidden="true" />
             </a>
@@ -167,10 +167,10 @@ export default function FileRow({
             className={`${inputClass} resize-y`}
           />
           {replacing && (
-            <div className="flex items-center gap-2 text-xs text-zinc-400">
-              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-800">
+            <div className="flex items-center gap-2 text-xs text-ink-muted">
+              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-zinc-200">
                 <div
-                  className="h-full bg-violet-500 transition-[width]"
+                  className="h-full bg-violet-600 transition-[width]"
                   style={{ width: `${replaceProgress}%` }}
                 />
               </div>
@@ -267,7 +267,7 @@ export default function FileRow({
                 type="button"
                 onClick={() => setConfirmDelete(true)}
                 disabled={busy}
-                className={`${iconButtonClass} hover:text-red-300`}
+                className={`${iconButtonClass} hover:text-red-600`}
                 aria-label={`Delete ${file.title}`}
               >
                 <Trash2 className="size-4" />

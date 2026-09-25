@@ -25,9 +25,9 @@ export default function BulkBar({
   const count = `${names.length} ${names.length === 1 ? 'file' : 'files'}`
 
   return (
-    <div className="sticky bottom-4 z-30 flex flex-col gap-2 rounded-xl border border-violet-500/30 bg-zinc-900/95 p-3 shadow-xl shadow-black/40 backdrop-blur">
+    <div className="sticky bottom-4 z-30 flex flex-col gap-2 rounded-xl border border-violet-200 bg-surface/95 p-3 shadow-xl shadow-zinc-900/10 backdrop-blur">
       <div className="flex flex-wrap items-center gap-3">
-        <span className="text-sm font-medium text-zinc-100">{count} selected</span>
+        <span className="text-sm font-medium text-ink">{count} selected</span>
         <select
           value=""
           onChange={(e) => {
@@ -49,7 +49,7 @@ export default function BulkBar({
         </select>
 
         {confirmDelete ? (
-          <span className="flex items-center gap-1 text-xs text-zinc-400">
+          <span className="flex items-center gap-1 text-xs text-ink-muted">
             Permanently delete {count}?
             <button
               type="button"
@@ -77,14 +77,14 @@ export default function BulkBar({
             type="button"
             onClick={() => setConfirmDelete(true)}
             disabled={pending}
-            className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm text-red-300 hover:bg-red-500/10"
+            className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm text-red-600 hover:bg-red-50"
           >
             <Trash2 className="size-4" aria-hidden="true" />
             Delete
           </button>
         )}
 
-        {pending && <Loader2 className="size-4 animate-spin text-zinc-400" aria-hidden="true" />}
+        {pending && <Loader2 className="size-4 animate-spin text-ink-subtle" aria-hidden="true" />}
 
         <button type="button" onClick={onClear} className={`${iconButtonClass} ml-auto`} aria-label="Clear selection">
           <X className="size-4" />

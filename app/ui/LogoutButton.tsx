@@ -21,8 +21,8 @@ export default function LogoutButton({ compact = false }: { compact?: boolean })
       disabled={isPending}
       aria-label={compact ? label : undefined}
       title={compact ? label : undefined}
-      className={`flex items-center gap-2 rounded-lg border border-white/10 bg-zinc-800 text-sm font-medium text-zinc-300 transition hover:border-red-500/30 hover:bg-red-500/10 hover:text-red-300 disabled:cursor-not-allowed disabled:opacity-50 ${
-        compact ? 'justify-center p-2.5' : 'px-4 py-2'
+      className={`flex items-center gap-2 min-h-11 rounded-lg border border-line bg-surface text-sm font-medium text-ink-muted transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 ${
+        compact ? 'justify-center p-2.5' : 'w-full px-4 py-2'
       }`}
     >
       <LogOut className="h-4 w-4" />

@@ -48,16 +48,20 @@ export default async function DocumentsPage() {
         const albums = category.children.filter((c) => c.files.length > 0)
         return (
           <section key={category.id} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1">
-              <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-400">
-                {category.name}
-              </h2>
-              {category.description && (
-                <p className="text-sm text-zinc-500">{category.description}</p>
-              )}
+            <div className="flex items-end justify-between gap-4 border-b border-line pb-3">
+              <div className="flex min-w-0 flex-col gap-1">
+                <h2 className="text-base font-semibold text-ink sm:text-lg">{category.name}</h2>
+                {category.description && (
+                  <p className="text-sm text-ink-muted">{category.description}</p>
+                )}
+              </div>
+              <span className="shrink-0 text-sm text-ink-subtle tabular-nums">
+                {countGroupFiles(category)}{' '}
+                {countGroupFiles(category) === 1 ? 'document' : 'documents'}
+              </span>
             </div>
 
-            <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+            <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4">
               {category.files.length > 0 && (
                 <li>
                   <DocumentAlbumCard
@@ -79,7 +83,9 @@ export default async function DocumentsPage() {
       {documents.unsorted.length > 0 && (
         <section className="flex flex-col gap-4">
           {categories.length > 0 && (
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-400">Other</h2>
+            <h2 className="border-b border-line pb-3 text-base font-semibold text-ink sm:text-lg">
+              Other
+            </h2>
           )}
           <MediaList icon={FileText} rows={documents.unsorted.map(toRow)} />
         </section>

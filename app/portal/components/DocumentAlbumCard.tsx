@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { Eye, FileText } from 'lucide-react'
+import { ArrowRight, FileText } from 'lucide-react'
 import type { LibraryGroup } from '@/lib/libraryTypes'
 
 const PREVIEW_COUNT = 3
@@ -18,32 +18,43 @@ export default function DocumentAlbumCard({
   return (
     <Link
       href={`/portal/documents/${album.id}`}
-      className="group flex h-full flex-col gap-3 rounded-xl border border-zinc-800 bg-zinc-900/60 p-4 transition-colors hover:border-zinc-700 hover:bg-zinc-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-400"
+      className="group flex h-full flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-sm transition hover:-translate-y-0.5 hover:border-zinc-300 hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500"
     >
-      <div className="relative aspect-square overflow-hidden rounded-lg border border-zinc-800 bg-linear-to-br from-sky-900/40 via-zinc-900 to-zinc-950 p-5">
-        <div className="absolute inset-x-8 top-3 h-full rounded-md border border-zinc-700/60 bg-zinc-800/40" />
-        <div className="absolute inset-x-6 top-5 h-full rounded-md border border-zinc-700/70 bg-zinc-800/60" />
-        <div className="absolute inset-x-4 top-7 flex h-full flex-col gap-2 rounded-md border border-zinc-700 bg-zinc-900 p-3 shadow-lg shadow-black/40 transition group-hover:-translate-y-1">
+      <div className="relative aspect-4/3 overflow-hidden bg-linear-to-br from-sky-50 via-slate-50 to-violet-50 sm:aspect-square">
+        <div className="absolute inset-x-[22%] top-[14%] h-full rounded-md bg-white shadow-sm ring-1 ring-zinc-200/70" />
+        <div className="absolute inset-x-[17%] top-[19%] h-full rounded-md bg-white shadow-sm ring-1 ring-zinc-200/70" />
+        <div className="absolute inset-x-[12%] top-[24%] flex h-full flex-col gap-1.5 rounded-md bg-white p-2.5 shadow-md ring-1 ring-zinc-200 transition duration-300 group-hover:-translate-y-1 sm:gap-2 sm:p-3">
+          <span className="mb-0.5 w-fit rounded bg-red-500 px-1.5 py-px text-[10px] font-bold tracking-wide text-white">
+            PDF
+          </span>
           {preview.map((file) => (
-            <div key={file.id} className="flex items-center gap-2">
-              <FileText className="size-3.5 shrink-0 text-sky-300/80" aria-hidden="true" />
-              <span className="truncate text-xs text-zinc-300">{file.title}</span>
+            <div key={file.id} className="flex items-center gap-1.5">
+              <FileText className="size-3 shrink-0 text-sky-500" aria-hidden="true" />
+              <span className="truncate text-[11px] text-ink-muted sm:text-xs">{file.title}</span>
             </div>
           ))}
-          {remaining > 0 && <span className="text-xs text-zinc-500">+{remaining} more</span>}
+          {remaining > 0 && (
+            <span className="text-[11px] text-ink-subtle sm:text-xs">+{remaining} more</span>
+          )}
         </div>
-        <span className="absolute right-3 bottom-3 flex size-10 translate-y-1 items-center justify-center rounded-full bg-sky-500 text-white opacity-0 shadow-lg transition group-hover:translate-y-0 group-hover:opacity-100">
-          <Eye className="size-5" aria-hidden="true" />
-        </span>
       </div>
-      <div className="flex flex-col gap-1">
-        <span className="font-medium text-zinc-100">{label ?? album.name}</span>
-        <span className="text-xs text-zinc-500">
-          {count} {count === 1 ? 'document' : 'documents'}
+
+      <div className="flex flex-1 flex-col gap-1 border-t border-line p-3 sm:p-4">
+        <span className="line-clamp-2 text-sm font-semibold text-ink sm:text-base">
+          {label ?? album.name}
         </span>
         {album.description && (
-          <p className="line-clamp-2 text-sm text-zinc-500">{album.description}</p>
+          <p className="line-clamp-2 hidden text-sm text-ink-muted sm:block">{album.description}</p>
         )}
+        <div className="mt-auto flex items-center justify-between gap-2 pt-2">
+          <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-ink-muted tabular-nums">
+            {count} {count === 1 ? 'doc' : 'docs'}
+          </span>
+          <span className="flex items-center gap-1 text-xs font-semibold text-violet-600 transition group-hover:opacity-100 [@media(hover:hover)]:opacity-0">
+            View
+            <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden="true" />
+          </span>
+        </div>
       </div>
     </Link>
   )

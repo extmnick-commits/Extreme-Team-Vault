@@ -29,7 +29,7 @@ function PlayAllLink({ href }: { href: string }) {
   return (
     <Link
       href={href}
-      className="inline-flex items-center gap-1.5 rounded-full bg-violet-600 px-3 py-1 text-xs font-semibold text-white transition hover:bg-violet-500"
+      className="inline-flex min-h-9 items-center gap-1.5 rounded-full bg-violet-600 px-4 text-xs font-semibold text-white shadow-sm shadow-violet-600/30 transition hover:bg-violet-700"
     >
       <Play className="size-3.5 fill-current" aria-hidden="true" />
       Play all
@@ -60,17 +60,15 @@ export default async function AudioPage() {
         const albums = category.children.filter((c) => c.files.length > 0)
         return (
           <section key={category.id} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1">
-              <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-400">
-                {category.name}
-              </h2>
+            <div className="flex flex-col gap-1 border-b border-line pb-3">
+              <h2 className="text-base font-semibold text-ink sm:text-lg">{category.name}</h2>
               {category.description && (
-                <p className="text-sm text-zinc-500">{category.description}</p>
+                <p className="text-sm text-ink-muted">{category.description}</p>
               )}
             </div>
 
             {albums.length > 0 && (
-              <ul className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+              <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 lg:grid-cols-4">
                 {albums.map((album) => (
                   <li key={album.id}>
                     <AlbumCard album={album} />
@@ -83,7 +81,7 @@ export default async function AudioPage() {
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between gap-3">
                   {albums.length > 0 && (
-                    <h3 className="text-sm font-medium text-zinc-300">More tracks</h3>
+                    <h3 className="text-sm font-semibold text-ink-muted">More tracks</h3>
                   )}
                   <div className="ml-auto">
                     <PlayAllLink href={`/portal/audio/${category.id}`} />
@@ -99,7 +97,9 @@ export default async function AudioPage() {
       {audio.unsorted.length > 0 && (
         <section className="flex flex-col gap-4">
           {categories.length > 0 && (
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-zinc-400">Other</h2>
+            <h2 className="border-b border-line pb-3 text-base font-semibold text-ink sm:text-lg">
+              Other
+            </h2>
           )}
           <MediaList icon={Headphones} rows={audio.unsorted.map(toRow)} />
         </section>

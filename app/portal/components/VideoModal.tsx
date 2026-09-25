@@ -1,8 +1,8 @@
 'use client'
 
 import { useEffect, useRef } from 'react'
-import { X } from 'lucide-react'
-import type { VideoItem } from '@/lib/mediaData'
+import { Clock, X } from 'lucide-react'
+import type { VideoItem } from '@/lib/videoTypes'
 
 type VideoModalProps = {
   video: VideoItem
@@ -32,38 +32,17 @@ export default function VideoModal({ video, onClose }: VideoModalProps) {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm sm:p-8"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-zinc-950/70 backdrop-blur-sm sm:items-center sm:p-8"
       onClick={onClose}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="flex w-full max-w-5xl flex-col gap-4 rounded-xl border border-zinc-800 bg-zinc-950 p-4 shadow-2xl sm:p-5"
+        className="flex max-h-full w-full max-w-5xl flex-col overflow-y-auto bg-surface pb-[env(safe-area-inset-bottom)] shadow-2xl sm:rounded-2xl sm:pb-0"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex min-w-0 flex-col gap-1">
-            <h2
-              id={titleId}
-              className="truncate text-lg font-semibold text-zinc-50"
-            >
-              {video.title}
-            </h2>
-            <p className="text-sm text-zinc-400">{video.description}</p>
-          </div>
-          <button
-            ref={closeButtonRef}
-            type="button"
-            onClick={onClose}
-            aria-label="Close video"
-            className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-zinc-800 text-zinc-400 transition-colors hover:border-zinc-700 hover:text-zinc-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-400"
-          >
-            <X className="size-4" aria-hidden="true" />
-          </button>
-        </div>
-
-        <div className="relative aspect-video w-full overflow-hidden rounded-lg bg-black">
+        <div className="relative aspect-video w-full shrink-0 bg-black">
           <iframe
             src={`https://player.mediadelivery.net/embed/${video.libraryId}/${video.bunnyVideoId}`}
             title={video.title}
@@ -72,6 +51,28 @@ export default function VideoModal({ video, onClose }: VideoModalProps) {
             loading="lazy"
             className="absolute inset-0 size-full border-0"
           />
+        </div>
+
+        <div className="flex items-start justify-between gap-4 p-4 sm:p-6">
+          <div className="flex min-w-0 flex-col gap-1.5">
+            <h2 id={titleId} className="text-lg font-semibold text-ink sm:text-xl">
+              {video.title}
+            </h2>
+            <p className="text-sm text-ink-muted sm:text-base">{video.description}</p>
+            <span className="mt-1 flex items-center gap-1 text-xs text-ink-subtle tabular-nums">
+              <Clock className="size-3.5" aria-hidden="true" />
+              {video.duration}
+            </span>
+          </div>
+          <button
+            ref={closeButtonRef}
+            type="button"
+            onClick={onClose}
+            aria-label="Close video"
+            className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-line text-ink-muted transition-colors hover:bg-zinc-100 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500"
+          >
+            <X className="size-5" aria-hidden="true" />
+          </button>
         </div>
       </div>
     </div>

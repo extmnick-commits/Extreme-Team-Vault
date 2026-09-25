@@ -2,9 +2,14 @@
 
 import { useRef, useState } from 'react'
 import { CheckCircle2, CloudUpload, Loader2, X, XCircle } from 'lucide-react'
-import { ACCEPT_ATTRIBUTE, type GroupOption, type Library } from '@/lib/libraryTypes'
-import { finalizeUpload } from './actions'
-import { useBlobUpload, validateFile } from './useBlobUpload'
+import {
+  VIDEO_ACCEPT,
+  VIDEO_CATEGORIES,
+  VIDEO_CATEGORY_LABELS,
+  validateVideoFile,
+  type VideoCategory,
+} from '@/lib/videoTypes'
+import { useStreamUpload } from './useStreamUpload'
 
 type QueueStatus = 'pending' | 'uploading' | 'processing' | 'done' | 'error'
 
@@ -17,19 +22,11 @@ type QueueItem = {
   error?: string
 }
 
-export default function UploadPanel({
-  library,
-  sections,
-  blobAccess,
-}: {
-  library: Library
-  sections: GroupOption[]
-  blobAccess: 'public' | 'private'
-}) {
-  const uploadBlob = useBlobUpload(library, blobAccess)
+export default function VideoUploadPanel() {
+  const uploadVideo = useStreamUpload()
   const inputRef = useRef<HTMLInputElement>(null)
   const [queue, setQueue] = useState<QueueItem[]>([])
-  const [sectionId, setSectionId] = useState<string>('')
+  const [category, setCategory] = useState<VideoCategory>('training')
   const [dragging, setDragging] = useState(false)
   const [running, setRunning] = useState(false)
 
@@ -40,7 +37,7 @@ export default function UploadPanel({
   function addFiles(files: FileList | null) {
     if (!files) return
     const added = Array.from(files).map<QueueItem>((file) => {
-      const error = validateFile(file, library)
+      const error = validateVideoFile(file)
       return {
         key: `${file.name}-${file.size}-${file.lastModified}-${Math.random()}`,
         file,
@@ -55,23 +52,12 @@ export default function UploadPanel({
 
   async function uploadOne(item: QueueItem) {
     patch(item.key, { status: 'uploading', progress: 0, error: undefined })
+    const title = item.title.trim() || item.file.name.replace(/\.[^.]+$/, '')
     try {
-      const blobUrl = await uploadBlob(item.file, (progress) => patch(item.key, { progress }))
-
-      patch(item.key, { status: 'processing', progress: 100 })
-      const result = await finalizeUpload({
-        library,
-        blobUrl,
-        originalName: item.file.name,
-        title: item.title,
-        sectionId: sectionId || null,
-      })
-
-      if (result.ok) {
-        patch(item.key, { status: 'done' })
-      } else {
-        patch(item.key, { status: 'error', error: result.error })
-      }
+      await uploadVideo(item.file, { title, category }, (progress) =>
+        patch(item.key, { progress }),
+      )
+      patch(item.key, { status: 'done', progress: 100 })
     } catch (error) {
       patch(item.key, {
         status: 'error',
@@ -94,23 +80,22 @@ export default function UploadPanel({
     <section className="flex flex-col gap-4 rounded-2xl border border-line bg-surface p-4 shadow-sm sm:p-5">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h2 className="text-lg font-semibold text-ink">Upload files</h2>
+          <h2 className="text-lg font-semibold text-ink">Upload videos</h2>
           <p className="text-sm text-ink-muted">
-            {library === 'documents' ? 'PDF files' : 'MP3, M4A, or WAV files'}, up to 500 MB each.
+            MP4, MOV, or WebM, up to 5 GB each. Files go straight to Bunny Stream.
           </p>
         </div>
         <label className="flex flex-col gap-1.5 text-xs font-medium uppercase tracking-wide text-ink-muted">
           Add to
           <select
-            value={sectionId}
-            onChange={(e) => setSectionId(e.target.value)}
+            value={category}
+            onChange={(e) => setCategory(e.target.value as VideoCategory)}
             disabled={running}
             className="rounded-lg border border-line bg-surface px-3 py-2 text-sm normal-case tracking-normal text-ink outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
           >
-            <option value="">Other</option>
-            {sections.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.label}
+            {VIDEO_CATEGORIES.map((id) => (
+              <option key={id} value={id}>
+                {VIDEO_CATEGORY_LABELS[id]}
               </option>
             ))}
           </select>
@@ -134,7 +119,7 @@ export default function UploadPanel({
       >
         <CloudUpload className="size-8 text-violet-400" aria-hidden="true" />
         <p className="text-sm text-ink-muted">
-          Drag files here, or{' '}
+          Drag videos here, or{' '}
           <button
             type="button"
             onClick={() => inputRef.current?.click()}
@@ -147,7 +132,7 @@ export default function UploadPanel({
           ref={inputRef}
           type="file"
           multiple
-          accept={ACCEPT_ATTRIBUTE[library]}
+          accept={VIDEO_ACCEPT}
           className="hidden"
           onChange={(e) => {
             addFiles(e.target.files)
@@ -190,11 +175,6 @@ export default function UploadPanel({
               </div>
               <div className="flex shrink-0 items-center gap-2 text-xs text-ink-muted">
                 {item.status === 'uploading' && `${Math.round(item.progress)}%`}
-                {item.status === 'processing' && (
-                  <>
-                    <Loader2 className="size-4 animate-spin" aria-hidden="true" /> Saving to Bunny…
-                  </>
-                )}
                 {item.status === 'done' && (
                   <>
                     <CheckCircle2 className="size-4 text-emerald-600" aria-hidden="true" /> Uploaded
@@ -229,7 +209,7 @@ export default function UploadPanel({
             className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-violet-600/30 transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {running && <Loader2 className="size-4 animate-spin" aria-hidden="true" />}
-            Upload {pendingCount} {pendingCount === 1 ? 'file' : 'files'}
+            Upload {pendingCount} {pendingCount === 1 ? 'video' : 'videos'}
           </button>
         </div>
       )}

@@ -18,11 +18,11 @@ function Brand({ collapsed = false }: { collapsed?: boolean }) {
       className="flex min-w-0 items-center gap-3"
       title={collapsed ? 'Extreme Team Vault' : undefined}
     >
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-violet-600/20 ring-1 ring-violet-500/30">
-        <Shield className="h-5 w-5 text-violet-400" strokeWidth={1.5} />
+      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-violet-600 shadow-sm shadow-violet-600/30">
+        <Shield className="h-5 w-5 text-white" strokeWidth={1.75} />
       </span>
       {!collapsed && (
-        <span className="truncate text-sm font-semibold tracking-tight text-zinc-100">
+        <span className="truncate text-sm font-semibold tracking-tight text-ink">
           Extreme Team Vault
         </span>
       )}
@@ -44,9 +44,9 @@ function NavLinks({
       <NavLinkList items={NAV_ITEMS} pathname={pathname} collapsed={collapsed} />
       {isAdmin && (
         <>
-          <div className="my-3 border-t border-white/10" role="separator" />
+          <div className="my-3 border-t border-line" role="separator" />
           {!collapsed && (
-            <span className="px-3 pb-1 text-xs font-semibold uppercase tracking-wider text-zinc-500">
+            <span className="px-3 pb-1 text-xs font-semibold uppercase tracking-wider text-ink-subtle">
               Admin
             </span>
           )}
@@ -80,12 +80,12 @@ function NavLinkList({
             href={href}
             aria-current={active ? 'page' : undefined}
             title={collapsed ? label : undefined}
-            className={`flex items-center gap-3 rounded-lg border-l-2 py-2.5 text-sm font-medium transition ${
+            className={`flex min-h-11 items-center gap-3 rounded-lg py-2.5 text-sm font-medium transition ${
               collapsed ? 'justify-center px-2' : 'px-3'
             } ${
               active
-                ? 'border-violet-500 bg-violet-500/10 text-violet-200'
-                : 'border-transparent text-zinc-400 hover:bg-white/5 hover:text-zinc-100'
+                ? 'bg-violet-50 text-violet-700 ring-1 ring-violet-100'
+                : 'text-ink-muted hover:bg-zinc-100 hover:text-ink'
             }`}
           >
             <Icon className="h-5 w-5 shrink-0" />
@@ -131,12 +131,12 @@ export default function PortalSidebar({
     <>
       {/* Desktop sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-white/10 bg-zinc-900/80 backdrop-blur-sm transition-[width] duration-200 md:flex ${
+        className={`fixed inset-y-0 left-0 z-30 hidden flex-col border-r border-line bg-surface transition-[width] duration-200 md:flex ${
           collapsed ? 'w-20' : 'w-64'
         }`}
       >
         <div
-          className={`flex h-16 items-center border-b border-white/10 px-4 ${
+          className={`flex h-16 items-center border-b border-line px-4 ${
             collapsed ? 'justify-center' : 'justify-between gap-2'
           }`}
         >
@@ -146,7 +146,7 @@ export default function PortalSidebar({
             onClick={() => setCollapsed((c) => !c)}
             aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-            className="rounded-lg p-2 text-zinc-400 transition hover:bg-white/5 hover:text-zinc-100"
+            className="rounded-lg p-2 text-ink-subtle transition hover:bg-zinc-100 hover:text-ink"
           >
             {collapsed ? (
               <PanelLeftOpen className="h-5 w-5" />
@@ -165,14 +165,14 @@ export default function PortalSidebar({
       </aside>
 
       {/* Mobile top bar */}
-      <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-white/10 bg-zinc-900/80 px-4 backdrop-blur-sm md:hidden">
+      <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-line bg-surface/90 px-2 shadow-sm backdrop-blur-md md:hidden">
         <button
           type="button"
           onClick={() => setMobileOpen(true)}
           aria-label="Open menu"
           aria-expanded={mobileOpen}
           aria-controls="portal-mobile-drawer"
-          className="rounded-lg p-2 text-zinc-400 transition hover:bg-white/5 hover:text-zinc-100"
+          className="flex size-11 items-center justify-center rounded-lg text-ink-muted transition hover:bg-zinc-100 hover:text-ink"
         >
           <Menu className="h-5 w-5" />
         </button>
@@ -181,7 +181,7 @@ export default function PortalSidebar({
 
       {/* Mobile drawer */}
       <div
-        className={`fixed inset-0 z-40 bg-black/60 transition-opacity md:hidden ${
+        className={`fixed inset-0 z-40 bg-zinc-900/30 backdrop-blur-[2px] transition-opacity md:hidden ${
           mobileOpen ? 'opacity-100' : 'pointer-events-none opacity-0'
         }`}
         onClick={() => setMobileOpen(false)}
@@ -193,24 +193,24 @@ export default function PortalSidebar({
         aria-modal="true"
         aria-label="Portal navigation"
         inert={!mobileOpen}
-        className={`fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] flex-col border-r border-white/10 bg-zinc-900 shadow-2xl shadow-black/60 transition-transform duration-200 md:hidden ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] flex-col border-r border-line bg-surface shadow-2xl shadow-zinc-900/20 transition-transform duration-200 md:hidden ${
           mobileOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="flex h-14 items-center justify-between gap-2 border-b border-white/10 px-4">
+        <div className="flex h-14 items-center justify-between gap-2 border-b border-line pr-2 pl-4">
           <Brand />
           <button
             type="button"
             onClick={() => setMobileOpen(false)}
             aria-label="Close menu"
-            className="rounded-lg p-2 text-zinc-400 transition hover:bg-white/5 hover:text-zinc-100"
+            className="flex size-11 items-center justify-center rounded-lg text-ink-muted transition hover:bg-zinc-100 hover:text-ink"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
         <div className="flex flex-1 flex-col overflow-y-auto py-4">
           <NavLinks pathname={pathname} isAdmin={isAdmin} />
-          <div className="mt-auto px-3 pt-4">
+          <div className="mt-auto px-3 pt-4 pb-[env(safe-area-inset-bottom)]">
             <LogoutButton />
           </div>
         </div>

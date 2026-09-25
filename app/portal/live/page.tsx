@@ -54,8 +54,8 @@ export default function LivePage() {
 
   return (
     <div className="flex flex-col gap-8">
-      <header className="flex flex-col gap-4 rounded-xl border border-zinc-800 bg-linear-to-r from-zinc-900 via-zinc-950 to-zinc-900 p-6 sm:flex-row sm:items-center sm:gap-6">
-        <span className="inline-flex w-fit shrink-0 items-center gap-2 rounded-full border border-red-500/30 bg-red-500/10 px-3 py-1 text-xs font-semibold tracking-widest text-red-400">
+      <header className="flex flex-col gap-4 rounded-2xl border border-line bg-linear-to-r from-white via-red-50/40 to-white p-5 shadow-sm sm:flex-row sm:items-center sm:gap-6 sm:p-6">
+        <span className="inline-flex w-fit shrink-0 items-center gap-2 rounded-full border border-red-200 bg-red-50 px-3 py-1 text-xs font-semibold tracking-widest text-red-600">
           <span className="relative flex size-2.5">
             <span className="absolute inline-flex size-full animate-ping rounded-full bg-red-500 opacity-75" />
             <span className="relative inline-flex size-2.5 rounded-full bg-red-500" />
@@ -63,16 +63,16 @@ export default function LivePage() {
           LIVE
         </span>
         <div className="flex flex-col gap-1">
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-50">
+          <h1 className="text-xl font-semibold tracking-tight text-ink sm:text-2xl">
             Live Trainings &amp; Opp Night
           </h1>
-          <p className="text-zinc-400">
+          <p className="text-sm text-ink-muted sm:text-base">
             The room is open. Join with your camera and mic, or just watch.
           </p>
         </div>
       </header>
 
-      <div className="h-[85vh] w-full overflow-hidden rounded-xl border border-zinc-800 bg-black">
+      <div className="h-[75svh] w-full overflow-hidden rounded-2xl border border-line bg-zinc-950 shadow-sm sm:h-[85vh]">
         {wherebyUrl ? (
           <iframe
             src={wherebyUrl}
@@ -84,10 +84,10 @@ export default function LivePage() {
           />
         ) : (
           <div className="flex size-full flex-col items-center justify-center gap-3 px-6 text-center">
-            <VideoOff className="size-8 text-zinc-600" aria-hidden="true" />
-            <p className="font-medium text-zinc-200">Live room not configured</p>
-            <p className="max-w-sm text-sm text-zinc-500">
-              Set <code className="text-zinc-300">NEXT_PUBLIC_WHEREBY_URL</code>{' '}
+            <VideoOff className="size-8 text-zinc-500" aria-hidden="true" />
+            <p className="font-medium text-zinc-100">Live room not configured</p>
+            <p className="max-w-sm text-sm text-zinc-400">
+              Set <code className="text-zinc-200">NEXT_PUBLIC_WHEREBY_URL</code>{' '}
               to your Whereby room URL and restart the server.
             </p>
           </div>
@@ -95,27 +95,27 @@ export default function LivePage() {
       </div>
 
       <section className="flex flex-col gap-4">
-        <h2 className="text-lg font-semibold text-zinc-50">Weekly Schedule</h2>
+        <h2 className="text-lg font-semibold text-ink">Weekly Schedule</h2>
 
         <ul className="grid gap-4 sm:grid-cols-2">
           {SCHEDULE.map((event) => (
             <li
               key={event.id}
-              className="flex items-start gap-4 rounded-xl border border-zinc-800 bg-zinc-900/60 p-5"
+              className="flex items-start gap-4 rounded-2xl border border-line bg-surface p-4 shadow-sm sm:p-5"
             >
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-950 text-zinc-300">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-600 ring-1 ring-violet-100">
                 <CalendarClock className="size-5" aria-hidden="true" />
               </span>
               <div className="flex min-w-0 flex-1 flex-col gap-1">
-                <span className="font-medium text-zinc-100">{event.title}</span>
-                <span className="text-sm text-zinc-400">
+                <span className="font-semibold text-ink">{event.title}</span>
+                <span className="text-sm text-ink-muted">
                   {event.day} @ {event.time}
                 </span>
                 <a
                   href={googleCalendarUrl(event)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="mt-2 inline-flex w-fit items-center gap-1.5 rounded-md text-sm text-zinc-400 transition-colors hover:text-zinc-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-zinc-400"
+                  className="mt-1 -ml-2 inline-flex min-h-11 w-fit items-center gap-1.5 rounded-lg px-2 text-sm font-medium text-violet-600 transition-colors hover:bg-violet-50 hover:text-violet-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500"
                 >
                   <CalendarPlus className="size-4" aria-hidden="true" />
                   Add to Calendar
@@ -125,7 +125,7 @@ export default function LivePage() {
           ))}
         </ul>
 
-        <p className="flex items-center gap-2 text-sm text-zinc-500">
+        <p className="flex items-center gap-2 text-sm text-ink-subtle">
           <Globe className="size-4 shrink-0" aria-hidden="true" />
           All times are Pacific Time. Calendar invites adjust to your local time
           zone automatically.

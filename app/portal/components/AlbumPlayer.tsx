@@ -81,7 +81,7 @@ export default function AlbumPlayer({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="sticky top-4 z-10 flex flex-col gap-3 rounded-xl border border-zinc-800 bg-zinc-900/95 p-4 shadow-lg shadow-black/30 backdrop-blur">
+      <div className="sticky top-16 z-10 flex flex-col gap-3 rounded-2xl border border-line bg-surface/95 p-4 shadow-lg shadow-zinc-900/5 backdrop-blur md:top-4">
         <audio
           ref={audioRef}
           src={track.src}
@@ -110,7 +110,7 @@ export default function AlbumPlayer({
             type="button"
             onClick={skipBack}
             disabled={!hasPrev && time <= 3}
-            className="rounded-full p-2 text-zinc-300 transition hover:bg-white/5 hover:text-white disabled:opacity-30"
+            className="flex size-11 items-center justify-center rounded-full text-ink-muted transition hover:bg-zinc-100 hover:text-ink disabled:opacity-30"
             aria-label="Previous track"
           >
             <SkipBack className="size-5" />
@@ -118,7 +118,7 @@ export default function AlbumPlayer({
           <button
             type="button"
             onClick={togglePlay}
-            className="flex size-12 items-center justify-center rounded-full bg-violet-600 text-white shadow-md shadow-violet-900/40 transition hover:bg-violet-500"
+            className="flex size-12 shrink-0 items-center justify-center rounded-full bg-violet-600 text-white shadow-md shadow-violet-600/30 transition hover:bg-violet-700"
             aria-label={playing ? 'Pause' : 'Play'}
           >
             {loading && playing ? (
@@ -133,20 +133,20 @@ export default function AlbumPlayer({
             type="button"
             onClick={() => goTo(index + 1)}
             disabled={!hasNext}
-            className="rounded-full p-2 text-zinc-300 transition hover:bg-white/5 hover:text-white disabled:opacity-30"
+            className="flex size-11 items-center justify-center rounded-full text-ink-muted transition hover:bg-zinc-100 hover:text-ink disabled:opacity-30"
             aria-label="Next track"
           >
             <SkipForward className="size-5" />
           </button>
           <div className="flex min-w-0 flex-col">
-            <span className="truncate font-medium text-zinc-100">{track.title}</span>
-            <span className="text-xs text-zinc-500">
+            <span className="truncate font-semibold text-ink">{track.title}</span>
+            <span className="text-xs text-ink-subtle">
               Track {index + 1} of {tracks.length}
             </span>
           </div>
         </div>
 
-        <div className="flex items-center gap-3 text-xs text-zinc-500 tabular-nums">
+        <div className="flex items-center gap-3 text-xs text-ink-subtle tabular-nums">
           <span className="w-12 text-right">{formatTime(time)}</span>
           <input
             type="range"
@@ -162,13 +162,13 @@ export default function AlbumPlayer({
             }}
             disabled={!duration}
             aria-label="Seek"
-            className="h-1.5 flex-1 cursor-pointer accent-violet-500"
+            className="h-1.5 flex-1 cursor-pointer accent-violet-600"
           />
           <span className="w-12">{formatTime(duration)}</span>
         </div>
       </div>
 
-      <ol className="divide-y divide-zinc-800 overflow-hidden rounded-xl border border-zinc-800 bg-zinc-900/60">
+      <ol className="divide-y divide-line overflow-hidden rounded-2xl border border-line bg-surface shadow-sm">
         {tracks.map((t, i) => {
           const current = i === index
           return (
@@ -177,13 +177,13 @@ export default function AlbumPlayer({
                 type="button"
                 onClick={() => (current ? togglePlay() : goTo(i))}
                 aria-current={current ? 'true' : undefined}
-                className={`flex w-full items-start gap-4 p-4 text-left transition-colors hover:bg-zinc-900 ${
-                  current ? 'bg-violet-500/10' : ''
+                className={`flex w-full items-start gap-3 p-4 text-left transition-colors sm:gap-4 ${
+                  current ? 'bg-violet-50' : 'hover:bg-zinc-50'
                 }`}
               >
                 <span
                   className={`flex size-8 shrink-0 items-center justify-center rounded-full text-sm tabular-nums ${
-                    current ? 'bg-violet-600 text-white' : 'border border-zinc-700 text-zinc-400'
+                    current ? 'bg-violet-600 text-white' : 'border border-line text-ink-subtle'
                   }`}
                 >
                   {current && playing ? (
@@ -195,12 +195,12 @@ export default function AlbumPlayer({
                   )}
                 </span>
                 <span className="flex min-w-0 flex-1 flex-col gap-1">
-                  <span className={`font-medium ${current ? 'text-violet-200' : 'text-zinc-100'}`}>
+                  <span className={`font-medium ${current ? 'text-violet-900' : 'text-ink'}`}>
                     {t.title}
                   </span>
-                  <span className="text-sm text-zinc-500">{t.description}</span>
+                  <span className="line-clamp-2 text-sm text-ink-muted">{t.description}</span>
                 </span>
-                <span className="shrink-0 rounded-full border border-zinc-700 bg-zinc-800/60 px-2 py-0.5 text-xs font-medium text-zinc-300 tabular-nums">
+                <span className="hidden shrink-0 rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-ink-muted tabular-nums sm:inline">
                   {t.badge}
                 </span>
               </button>

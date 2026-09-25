@@ -80,12 +80,12 @@ export function FileList({ container, emptyText }: { container: string; emptyTex
     <SortableContext items={names.map((n) => dndId('file', n))} strategy={verticalListSortingStrategy}>
       <ul
         ref={setNodeRef}
-        className={`divide-y divide-zinc-800 overflow-hidden rounded-xl border transition ${
-          isOver ? 'border-violet-500/60' : 'border-zinc-800'
+        className={`divide-y divide-line overflow-hidden rounded-xl border bg-surface transition ${
+          isOver ? 'border-violet-400' : 'border-line'
         } ${names.length === 0 ? 'border-dashed' : ''}`}
       >
         {names.length === 0 && (
-          <li className="px-4 py-6 text-center text-sm text-zinc-600">{emptyText}</li>
+          <li className="px-4 py-6 text-center text-sm text-ink-subtle">{emptyText}</li>
         )}
         {names.map((name, index) => {
           const file = files.get(name)
@@ -117,12 +117,12 @@ function SelectAll({ names }: { names: string[] }) {
   if (names.length === 0) return null
   const all = names.every((n) => selected.has(n))
   return (
-    <label className="flex items-center gap-1.5 text-xs text-zinc-500">
+    <label className="flex items-center gap-1.5 text-xs text-ink-subtle">
       <input
         type="checkbox"
         checked={all}
         onChange={() => toggleSelected(names, !all)}
-        className="size-3.5 accent-violet-500"
+        className="size-3.5 accent-violet-600"
       />
       Select all
     </label>
@@ -136,8 +136,8 @@ export function UnsortedCard() {
   return (
     <section className="flex flex-col gap-3">
       <div className="flex items-center gap-3">
-        <h3 className="text-sm font-semibold uppercase tracking-wider text-zinc-400">
-          Other <span className="font-normal text-zinc-600">({names.length})</span>
+        <h3 className="text-sm font-semibold uppercase tracking-wider text-ink-muted">
+          Other <span className="font-normal text-ink-subtle">({names.length})</span>
         </h3>
         <SelectAll names={names} />
       </div>
@@ -189,8 +189,8 @@ export function SectionCard({ id, parentId }: { id: string; parentId: string | n
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={`flex flex-col gap-3 rounded-2xl border p-4 transition ${
-        isParent ? 'bg-zinc-950/40' : 'bg-zinc-900/40'
-      } ${isOver && !isDragging ? 'border-violet-500/60' : 'border-zinc-800'} ${
+        isParent ? 'bg-surface shadow-sm' : 'bg-zinc-50'
+      } ${isOver && !isDragging ? 'border-violet-400' : 'border-line'} ${
         isDragging ? 'relative z-20 opacity-50' : ''
       }`}
     >
@@ -200,7 +200,7 @@ export function SectionCard({ id, parentId }: { id: string; parentId: string | n
           ref={setActivatorNodeRef}
           {...attributes}
           {...listeners}
-          className="cursor-grab touch-none rounded p-0.5 text-zinc-500 hover:text-zinc-200 active:cursor-grabbing"
+          className="cursor-grab touch-none rounded p-0.5 text-ink-subtle hover:text-ink active:cursor-grabbing"
           aria-label={`Drag ${group.name}`}
         >
           <GripVertical className="size-4" />
@@ -219,19 +219,19 @@ export function SectionCard({ id, parentId }: { id: string; parentId: string | n
           <SectionEditForm group={group} onDone={() => setEditing(false)} />
         ) : (
           <div className="flex min-w-0 flex-col">
-            <h3 className={`font-semibold text-zinc-100 ${isParent ? 'text-base' : 'text-sm'}`}>
+            <h3 className={`font-semibold text-ink ${isParent ? 'text-base' : 'text-sm'}`}>
               {group.name}{' '}
-              <span className="text-xs font-normal text-zinc-500">
+              <span className="text-xs font-normal text-ink-subtle">
                 {kindLabel} · {allNames.length} {allNames.length === 1 ? 'file' : 'files'}
               </span>
             </h3>
-            {group.description && <p className="text-sm text-zinc-500">{group.description}</p>}
+            {group.description && <p className="text-sm text-ink-muted">{group.description}</p>}
           </div>
         )}
 
         {!editing && (
           <div className="ml-auto flex flex-wrap items-center gap-1">
-            {busy && <Loader2 className="size-4 animate-spin text-zinc-500" aria-hidden="true" />}
+            {busy && <Loader2 className="size-4 animate-spin text-ink-subtle" aria-hidden="true" />}
             <SelectAll names={allNames} />
             <select
               value={parentId ?? ''}
@@ -274,7 +274,7 @@ export function SectionCard({ id, parentId }: { id: string; parentId: string | n
               <Pencil className="size-4" />
             </button>
             {confirmDelete ? (
-              <span className="flex items-center gap-1 text-xs text-zinc-400">
+              <span className="flex items-center gap-1 text-xs text-ink-muted">
                 {isParent && childIds.length > 0
                   ? `Delete? Its ${labels.childPlural.toLowerCase()} move to top level, files to Other.`
                   : 'Delete? Files move to Other.'}
@@ -294,7 +294,7 @@ export function SectionCard({ id, parentId }: { id: string; parentId: string | n
               <button
                 type="button"
                 onClick={() => setConfirmDelete(true)}
-                className={`${iconButtonClass} hover:text-red-300`}
+                className={`${iconButtonClass} hover:text-red-600`}
                 aria-label={`Delete ${group.name}`}
               >
                 <Trash2 className="size-4" />
@@ -334,7 +334,7 @@ function ChildList({ parentId, childIds }: { parentId: string; childIds: string[
     <div
       ref={setNodeRef}
       className={`flex flex-col gap-3 rounded-xl pl-4 transition ${
-        isOver ? 'outline-2 outline-offset-4 outline-violet-500/50 outline-dashed' : ''
+        isOver ? 'outline-2 outline-offset-4 outline-violet-400 outline-dashed' : ''
       }`}
     >
       <SortableContext items={childIds.map((c) => dndId('section', c))} strategy={verticalListSortingStrategy}>
@@ -415,8 +415,8 @@ export function NewSectionForm({
         onClick={() => setOpen(true)}
         className={
           compact
-            ? 'inline-flex w-fit items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-violet-300 hover:bg-white/5'
-            : 'inline-flex items-center gap-2 rounded-lg border border-zinc-700 bg-zinc-900 px-3.5 py-2 text-sm font-medium text-zinc-200 transition hover:bg-zinc-800'
+            ? 'inline-flex w-fit items-center gap-1.5 rounded-md px-2 py-1 text-xs font-medium text-violet-600 hover:bg-violet-50'
+            : 'inline-flex items-center gap-2 rounded-lg border border-line bg-surface px-3.5 py-2 text-sm font-medium text-ink shadow-sm transition hover:bg-zinc-50'
         }
       >
         <FolderPlus className={compact ? 'size-3.5' : 'size-4'} aria-hidden="true" />

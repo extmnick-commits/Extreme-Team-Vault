@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { Video } from 'lucide-react'
-import { videos } from '@/lib/mediaData'
+import { getVideos } from '@/lib/bunnyStream'
 import PageHeader from '../components/PageHeader'
 import SectionPlaceholder from '../components/SectionPlaceholder'
 import VideoGallery from '../components/VideoGallery'
@@ -12,8 +12,8 @@ export const metadata: Metadata = {
 const TITLE = 'Training Videos'
 const DESCRIPTION = 'On-demand video trainings for the team.'
 
-export default function VideosPage() {
-  const trainingVideos = videos.filter((video) => video.category === 'training')
+export default async function VideosPage() {
+  const trainingVideos = await getVideos('training')
 
   if (trainingVideos.length === 0) {
     return (

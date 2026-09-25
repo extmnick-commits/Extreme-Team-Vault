@@ -12,15 +12,15 @@ export default function PageHeader({
   description,
 }: PageHeaderProps) {
   return (
-    <header className="flex items-start gap-4">
-      <span className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-zinc-800 bg-zinc-900 text-zinc-300">
+    <header className="flex items-start gap-3 sm:gap-4">
+      <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-600 ring-1 ring-violet-100 sm:size-11">
         <Icon className="size-5" aria-hidden="true" />
       </span>
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight text-zinc-50">
+      <div className="flex min-w-0 flex-col gap-1">
+        <h1 className="text-xl font-semibold tracking-tight text-ink sm:text-2xl">
           {title}
         </h1>
-        <p className="text-zinc-400">{description}</p>
+        <p className="text-sm text-ink-muted sm:text-base">{description}</p>
       </div>
     </header>
   )

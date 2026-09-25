@@ -307,8 +307,8 @@ export default function FileManager({
       <div className="flex flex-col gap-6">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h2 className="text-lg font-semibold text-zinc-100">Library</h2>
-            <p className="text-sm text-zinc-500">
+            <h2 className="text-lg font-semibold text-ink">Library</h2>
+            <p className="text-sm text-ink-muted">
               {totalFiles} {totalFiles === 1 ? 'file' : 'files'} in {groupOptions.length}{' '}
               {groupOptions.length === 1 ? 'group' : 'groups'}. Drag the handles to reorder files
               or move them between {labels.parentPlural.toLowerCase()} and{' '}
@@ -316,7 +316,7 @@ export default function FileManager({
             </p>
           </div>
           <div className="flex items-center gap-3">
-            {reorder.pending && <Loader2 className="size-4 animate-spin text-zinc-500" aria-hidden="true" />}
+            {reorder.pending && <Loader2 className="size-4 animate-spin text-ink-subtle" aria-hidden="true" />}
             <NewSectionForm parentId={null} label={`New ${labels.parent.toLowerCase()}`} />
           </div>
         </div>
@@ -346,11 +346,11 @@ export default function FileManager({
 
           <DragOverlay>
             {overlayLabel && (
-              <div className="inline-flex max-w-sm items-center gap-2 rounded-lg border border-violet-500/50 bg-zinc-900 px-3 py-2 text-sm font-medium text-zinc-100 shadow-xl shadow-black/50">
+              <div className="inline-flex max-w-sm items-center gap-2 rounded-lg border border-violet-300 bg-surface px-3 py-2 text-sm font-medium text-ink shadow-xl shadow-zinc-900/15">
                 {activeKind === 'file' ? (
-                  <FileText className="size-4 shrink-0 text-violet-300" aria-hidden="true" />
+                  <FileText className="size-4 shrink-0 text-violet-600" aria-hidden="true" />
                 ) : (
-                  <Folder className="size-4 shrink-0 text-violet-300" aria-hidden="true" />
+                  <Folder className="size-4 shrink-0 text-violet-600" aria-hidden="true" />
                 )}
                 <span className="truncate">{overlayLabel}</span>
               </div>

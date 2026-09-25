@@ -52,7 +52,7 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
   {
     href: '/portal/admin/files',
     label: 'Manage Files',
-    description: 'Upload, organize, and edit documents and audio.',
+    description: 'Upload, organize, and edit documents, audio, and videos.',
     icon: FolderCog,
   },
 ]

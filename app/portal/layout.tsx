@@ -9,9 +9,9 @@ export default async function PortalLayout({
   const admin = await isAdmin()
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100">
+    <div className="min-h-screen bg-canvas text-ink">
       <PortalSidebar isAdmin={admin}>
-        <main className="mx-auto max-w-6xl px-6 py-10">{children}</main>
+        <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10">{children}</main>
       </PortalSidebar>
     </div>
   )
