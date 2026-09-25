@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { CalendarClock, CalendarPlus, Globe, VideoOff } from 'lucide-react'
+import LiveRoomFrame from './LiveRoomFrame'
 
 export const metadata: Metadata = {
   title: 'Live Trainings & Opp Night | Extreme Team Vault',
@@ -51,6 +52,26 @@ function googleCalendarUrl(event: ScheduleEvent) {
 
 export default function LivePage() {
   const wherebyUrl = process.env.NEXT_PUBLIC_WHEREBY_URL
+  let urlHost: string | null = null
+  let urlPath: string | null = null
+  let queryKeys: string[] = []
+  let parseError = false
+  if (wherebyUrl) {
+    try {
+      const parsed = new URL(wherebyUrl)
+      urlHost = parsed.hostname
+      urlPath = parsed.pathname
+      queryKeys = [...parsed.searchParams.keys()]
+    } catch {
+      parseError = true
+    }
+  }
+  const isPlaceholder =
+    urlHost === 'mycustomname.whereby.com' ||
+    urlHost === 'subdomain.whereby.com'
+  // #region agent log
+  fetch('http://127.0.0.1:7327/ingest/3521cea2-834c-4a48-92b1-a701ece0381c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4e8c08'},body:JSON.stringify({sessionId:'4e8c08',location:'live/page.tsx:LivePage',message:'live page render',data:{hasUrl:Boolean(wherebyUrl),urlHost,urlPath,queryKeys,parseError,isPlaceholder,urlLength:wherebyUrl?.length??0},timestamp:Date.now(),hypothesisId:'B'})}).catch(()=>{});
+  // #endregion
 
   return (
     <div className="flex flex-col gap-8">
@@ -73,22 +94,30 @@ export default function LivePage() {
       </header>
 
       <div className="h-[75svh] w-full overflow-hidden rounded-2xl border border-line bg-zinc-950 shadow-sm sm:h-[85vh]">
-        {wherebyUrl ? (
-          <iframe
-            src={wherebyUrl}
-            title="Live training room"
-            allow="camera; microphone; fullscreen; speaker; display-capture; autoplay"
-            width="100%"
-            height="100%"
-            className="block border-0"
-          />
+        {wherebyUrl && !isPlaceholder ? (
+          <LiveRoomFrame src={wherebyUrl} />
         ) : (
           <div className="flex size-full flex-col items-center justify-center gap-3 px-6 text-center">
             <VideoOff className="size-8 text-zinc-500" aria-hidden="true" />
             <p className="font-medium text-zinc-100">Live room not configured</p>
             <p className="max-w-sm text-sm text-zinc-400">
-              Set <code className="text-zinc-200">NEXT_PUBLIC_WHEREBY_URL</code>{' '}
-              to your Whereby room URL and restart the server.
+              {isPlaceholder ? (
+                <>
+                  The URL in{' '}
+                  <code className="text-zinc-200">NEXT_PUBLIC_WHEREBY_URL</code>{' '}
+                  is still Whereby&apos;s example room. Paste your real room
+                  link (from Whereby, like{' '}
+                  <code className="text-zinc-200">
+                    https://yourname.whereby.com/room-name
+                  </code>
+                  ) and restart the server.
+                </>
+              ) : (
+                <>
+                  Set <code className="text-zinc-200">NEXT_PUBLIC_WHEREBY_URL</code>{' '}
+                  to your Whereby room URL and restart the server.
+                </>
+              )}
             </p>
           </div>
         )}
