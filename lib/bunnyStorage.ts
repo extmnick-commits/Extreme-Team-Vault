@@ -134,7 +134,12 @@ export async function listObjects(
   if (!isBunnyStorageObjectArray(data)) {
     throw new BunnyStorageError(`Unexpected response shape for "${library}".`)
   }
-  return data.filter((item) => !item.IsDirectory && item.ObjectName !== MANIFEST_NAME)
+  return data.filter(
+    (item) =>
+      !item.IsDirectory &&
+      item.ObjectName !== MANIFEST_NAME &&
+      item.ObjectName !== '_video-categories.json', // @see lib/videoCategoryStore.ts
+  )
 }
 
 export async function putObject(

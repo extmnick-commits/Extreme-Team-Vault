@@ -1,9 +1,9 @@
 import type { Metadata } from 'next'
 import { Video } from 'lucide-react'
-import { getVideos } from '@/lib/bunnyStream'
+import { getTrainingLibraryVideoSections } from '@/lib/bunnyStream'
 import PageHeader from '../components/PageHeader'
 import SectionPlaceholder from '../components/SectionPlaceholder'
-import VideoGallery from '../components/VideoGallery'
+import TrainingVideoGallery from '../components/TrainingVideoGallery'
 
 export const metadata: Metadata = {
   title: 'Training Videos | Extreme Team Vault',
@@ -13,9 +13,10 @@ const TITLE = 'Training Videos'
 const DESCRIPTION = 'On-demand video trainings for the team.'
 
 export default async function VideosPage() {
-  const trainingVideos = await getVideos('training')
+  const sections = await getTrainingLibraryVideoSections()
+  const videoCount = sections.reduce((total, section) => total + section.videos.length, 0)
 
-  if (trainingVideos.length === 0) {
+  if (videoCount === 0) {
     return (
       <SectionPlaceholder icon={Video} title={TITLE} description={DESCRIPTION} />
     )
@@ -24,7 +25,7 @@ export default async function VideosPage() {
   return (
     <div className="flex flex-col gap-8">
       <PageHeader icon={Video} title={TITLE} description={DESCRIPTION} />
-      <VideoGallery videos={trainingVideos} />
+      <TrainingVideoGallery sections={sections} />
     </div>
   )
 }

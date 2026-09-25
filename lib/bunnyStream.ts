@@ -1,12 +1,19 @@
 import 'server-only'
 import { createHash } from 'node:crypto'
 import {
-  VIDEO_CATEGORY_LABELS,
+  getAllVideoCategoryIds,
+  getVideoCategoryLabelMap,
+  isAllowedVideoCategoryId,
+  readCustomVideoCategories,
+} from './videoCategoryStore'
+import {
   VIDEO_STATUS,
   formatVideoDuration,
-  isVideoCategory,
+  getPortalTrainingCategoryIds,
   primaryStreamThumbnailUrl,
+  videoCategoryLabel,
   type AdminVideo,
+  type TrainingVideoSection,
   type VideoCategory,
   type VideoItem,
   type VideoView,
@@ -219,9 +226,20 @@ function parseCollection(value: unknown): StreamCollection | null {
   return { guid: value.guid, name: value.name }
 }
 
-function categoryFromName(name: string): VideoCategory | null {
+function categoryIdFromCollectionName(
+  name: string,
+  validIds: Set<string>,
+  labels: Record<string, string>,
+): VideoCategory | null {
   const normalized = name.trim().toLowerCase()
-  return isVideoCategory(normalized) ? normalized : null
+  if (validIds.has(normalized)) return normalized
+  const slug = normalized.replace(/\s+/g, '_')
+  if (validIds.has(slug)) return slug
+  for (const id of validIds) {
+    const label = labels[id]
+    if (label && label.trim().toLowerCase() === normalized) return id
+  }
+  return null
 }
 
 async function listCollections(options: ReadOptions = {}): Promise<StreamCollection[]> {
@@ -240,31 +258,44 @@ async function createCollection(name: string): Promise<StreamCollection> {
   return parsed
 }
 
-export async function ensureCollections(): Promise<Record<VideoCategory, string>> {
-  const existing = await listCollections({ fresh: true })
-  const ids = { training: '', archive: '' } satisfies Record<VideoCategory, string>
+export async function ensureCollections(): Promise<Record<string, string>> {
+  const [existing, labels, ids] = await Promise.all([
+    listCollections({ fresh: true }),
+    getVideoCategoryLabelMap(),
+    getAllVideoCategoryIds(),
+  ])
+  const validIds = new Set(ids)
+  const collectionIds: Record<string, string> = {}
 
   for (const collection of existing) {
-    const category = categoryFromName(collection.name)
-    if (category && !ids[category]) ids[category] = collection.guid
+    const category = categoryIdFromCollectionName(collection.name, validIds, labels)
+    if (category && !collectionIds[category]) collectionIds[category] = collection.guid
   }
 
-  for (const category of ['training', 'archive'] as const) {
-    if (ids[category]) continue
-    const created = await createCollection(VIDEO_CATEGORY_LABELS[category])
-    ids[category] = created.guid
+  for (const category of ids) {
+    if (collectionIds[category]) continue
+    const created = await createCollection(labels[category] ?? category)
+    collectionIds[category] = created.guid
   }
 
-  return ids
+  return collectionIds
 }
 
-function collectionCategoryMap(collections: StreamCollection[]): Map<string, VideoCategory> {
+async function collectionCategoryMap(
+  collections: StreamCollection[],
+): Promise<Map<string, VideoCategory>> {
+  const [labels, ids] = await Promise.all([getVideoCategoryLabelMap(), getAllVideoCategoryIds()])
+  const validIds = new Set(ids)
   const map = new Map<string, VideoCategory>()
   for (const collection of collections) {
-    const category = categoryFromName(collection.name)
+    const category = categoryIdFromCollectionName(collection.name, validIds, labels)
     if (category) map.set(collection.guid, category)
   }
   return map
+}
+
+export async function syncVideoCategoryCollections(): Promise<void> {
+  await ensureCollections()
 }
 
 async function listAllVideos(options: ReadOptions = {}): Promise<StreamVideo[]> {
@@ -300,7 +331,7 @@ export async function getAdminVideos(options: ReadOptions = {}): Promise<VideoVi
       listCollections(options),
       resolveStreamCdnBase(config),
     ])
-    const categories = collectionCategoryMap(collections)
+    const categories = await collectionCategoryMap(collections)
     return {
       videos: videos.map((video) =>
         toAdminVideo(video, categories, config.libraryId, cdnUrl),
@@ -315,6 +346,18 @@ export async function getAdminVideos(options: ReadOptions = {}): Promise<VideoVi
   }
 }
 
+function finishedVideosForCategories(
+  videos: AdminVideo[],
+  allowed: ReadonlySet<string>,
+): VideoItem[] {
+  return videos.filter(
+    (video): video is AdminVideo & { category: VideoCategory } =>
+      video.category !== null &&
+      allowed.has(video.category) &&
+      video.status === VIDEO_STATUS.finished,
+  )
+}
+
 export async function getVideos(category: VideoCategory): Promise<VideoItem[]> {
   const { videos, error } = await getAdminVideos()
   if (error) {
@@ -323,10 +366,43 @@ export async function getVideos(category: VideoCategory): Promise<VideoItem[]> {
     }
     return []
   }
-  return videos.filter(
-    (video): video is AdminVideo & { category: VideoCategory } =>
-      video.category === category && video.status === VIDEO_STATUS.finished,
-  )
+  return finishedVideosForCategories(videos, new Set([category]))
+}
+
+/** Training Videos portal tab: training, guest speakers, events, and custom categories. */
+export async function getTrainingLibraryVideoSections(): Promise<TrainingVideoSection[]> {
+  const custom = await readCustomVideoCategories()
+  const categoryIds = getPortalTrainingCategoryIds(custom)
+  const { videos, error } = await getAdminVideos()
+  if (error) {
+    if (!error.startsWith('Missing BUNNY_STREAM_')) {
+      console.error('[bunnyStream] Error loading training library videos:', error)
+    }
+    return categoryIds.map((id) => ({
+      id,
+      label: videoCategoryLabel(id, custom),
+      videos: [],
+    }))
+  }
+
+  const allowed = new Set(categoryIds)
+  const finished = finishedVideosForCategories(videos, allowed)
+  const byCategory = new Map<string, VideoItem[]>()
+  for (const id of categoryIds) byCategory.set(id, [])
+  for (const video of finished) {
+    byCategory.get(video.category)?.push(video)
+  }
+
+  return categoryIds.map((id) => ({
+    id,
+    label: videoCategoryLabel(id, custom),
+    videos: byCategory.get(id) ?? [],
+  }))
+}
+
+export async function getTrainingLibraryVideos(): Promise<VideoItem[]> {
+  const sections = await getTrainingLibraryVideoSections()
+  return sections.flatMap((section) => section.videos)
 }
 
 export async function createVideo(
@@ -334,10 +410,16 @@ export async function createVideo(
   category: VideoCategory,
 ): Promise<{ libraryId: string; videoId: string }> {
   const { libraryId } = getConfig()
+  const custom = await readCustomVideoCategories()
+  if (!isAllowedVideoCategoryId(category, custom)) {
+    throw new BunnyStreamError('Unknown video category.')
+  }
   const collections = await ensureCollections()
+  const collectionId = collections[category]
+  if (!collectionId) throw new BunnyStreamError('Video category is not configured.')
   const response = await streamFetch('/videos', {
     method: 'POST',
-    body: JSON.stringify({ title, collectionId: collections[category] }),
+    body: JSON.stringify({ title, collectionId }),
     fresh: true,
   })
   const parsed = parseVideo(await response.json())
@@ -366,7 +448,14 @@ export async function updateVideoDetails(
   details: { title?: string; description?: string; category?: VideoCategory | null },
 ): Promise<void> {
   const current = await getVideo(videoId)
-  const collections = details.category ? await ensureCollections() : null
+  let collections: Record<string, string> | null = null
+  if (details.category) {
+    const custom = await readCustomVideoCategories()
+    if (!isAllowedVideoCategoryId(details.category, custom)) {
+      throw new BunnyStreamError('Unknown video category.')
+    }
+    collections = await ensureCollections()
+  }
 
   let metaTags = current.metaTags
   if (details.description !== undefined) {
@@ -382,7 +471,9 @@ export async function updateVideoDetails(
   }
 
   if (details.category && collections) {
-    body.collectionId = collections[details.category]
+    const collectionId = collections[details.category]
+    if (!collectionId) throw new BunnyStreamError('Unknown video category.')
+    body.collectionId = collectionId
   } else if (details.category === null) {
     body.collectionId = ''
   }

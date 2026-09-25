@@ -4,14 +4,15 @@ import { redirect } from 'next/navigation'
 import { AlertCircle, FolderCog } from 'lucide-react'
 import { isAdmin } from '@/app/lib/session'
 import { getBlobAccess } from '@/lib/blobAccess'
-import { getAdminVideos } from '@/lib/bunnyStream'
+import { getAdminVideos, syncVideoCategoryCollections } from '@/lib/bunnyStream'
 import { getLibrary } from '@/lib/bunnyStorage'
 import { LIBRARIES, LIBRARY_LABELS, groupOptions, isLibrary } from '@/lib/libraryTypes'
 import PageHeader from '../../components/PageHeader'
 import FileManager from './FileManager'
 import UploadPanel from './UploadPanel'
+import { readCustomVideoCategories } from '@/lib/videoCategoryStore'
+import VideoAdminPanels from './VideoAdminPanels'
 import VideoManager from './VideoManager'
-import VideoUploadPanel from './VideoUploadPanel'
 
 export const metadata: Metadata = {
   title: 'Manage Files | Extreme Team Vault',
@@ -40,6 +41,12 @@ export default async function AdminFilesPage({
   const isVideos = requested === VIDEO_TAB
   const library = isLibrary(requested) ? requested : 'documents'
 
+  const customVideoCategories = isVideos
+    ? await readCustomVideoCategories({ fresh: true })
+    : []
+  if (isVideos) {
+    await syncVideoCategoryCollections().catch(() => undefined)
+  }
   const videosView = isVideos ? await getAdminVideos({ fresh: true }) : null
   const filesView = isVideos ? null : await getLibrary(library, { fresh: true })
   const blobAccess = isVideos ? null : getBlobAccess()
@@ -85,8 +92,8 @@ export default async function AdminFilesPage({
               </p>
             </div>
           )}
-          <VideoUploadPanel />
-          <VideoManager view={videosView} />
+          <VideoAdminPanels customCategories={customVideoCategories} />
+          <VideoManager view={videosView} customCategories={customVideoCategories} />
         </>
       ) : (
         filesView &&

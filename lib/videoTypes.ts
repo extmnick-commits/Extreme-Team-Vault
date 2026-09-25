@@ -1,14 +1,76 @@
-export const VIDEO_CATEGORIES = ['training', 'archive'] as const
+export const BUILTIN_VIDEO_CATEGORIES = [
+  'training',
+  'archive',
+  'guest_speakers',
+  'events',
+] as const
 
-export type VideoCategory = (typeof VIDEO_CATEGORIES)[number]
+/** @deprecated Use BUILTIN_VIDEO_CATEGORIES — kept for existing imports. */
+export const VIDEO_CATEGORIES = BUILTIN_VIDEO_CATEGORIES
 
-export function isVideoCategory(value: unknown): value is VideoCategory {
-  return typeof value === 'string' && (VIDEO_CATEGORIES as readonly string[]).includes(value)
+export type BuiltinVideoCategory = (typeof BUILTIN_VIDEO_CATEGORIES)[number]
+
+/** Bunny collection slug (built-in or custom). */
+export type VideoCategory = string
+
+export type CustomVideoCategory = {
+  id: string
+  label: string
 }
 
-export const VIDEO_CATEGORY_LABELS: Record<VideoCategory, string> = {
+export const VIDEO_CATEGORY_LABELS: Record<BuiltinVideoCategory, string> = {
   training: 'Training',
   archive: 'Archive',
+  guest_speakers: 'Guest Speakers',
+  events: 'Events',
+}
+
+export function slugifyVideoCategory(label: string): string {
+  return label
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 64)
+}
+
+export function videoCategoryLabel(
+  id: string,
+  custom: readonly CustomVideoCategory[] = [],
+): string {
+  if ((BUILTIN_VIDEO_CATEGORIES as readonly string[]).includes(id)) {
+    return VIDEO_CATEGORY_LABELS[id as BuiltinVideoCategory]
+  }
+  return custom.find((entry) => entry.id === id)?.label ?? id
+}
+
+export function isBuiltinVideoCategory(value: string): value is BuiltinVideoCategory {
+  return (BUILTIN_VIDEO_CATEGORIES as readonly string[]).includes(value)
+}
+
+/** Categories shown on the portal Training Videos page (everything except Archive). */
+export function getPortalTrainingCategoryIds(
+  custom: readonly CustomVideoCategory[] = [],
+): VideoCategory[] {
+  const ids: VideoCategory[] = []
+  for (const id of BUILTIN_VIDEO_CATEGORIES) {
+    if (id !== 'archive') ids.push(id)
+  }
+  for (const entry of custom) {
+    if (!ids.includes(entry.id)) ids.push(entry.id)
+  }
+  return ids
+}
+
+export function isVideoCategory(
+  value: unknown,
+  customIds: readonly string[] = [],
+): value is VideoCategory {
+  return (
+    typeof value === 'string' &&
+    value.length > 0 &&
+    (isBuiltinVideoCategory(value) || customIds.includes(value))
+  )
 }
 
 export type VideoItem = {
@@ -98,6 +160,12 @@ export type AdminVideo = Omit<VideoItem, 'category'> & {
 export type VideoView = {
   videos: AdminVideo[]
   error?: string
+}
+
+export type TrainingVideoSection = {
+  id: string
+  label: string
+  videos: VideoItem[]
 }
 
 export const MAX_VIDEO_BYTES = 5 * 1024 * 1024 * 1024

@@ -4,13 +4,14 @@ import { useState } from 'react'
 import { Clock, ImagePlus, Loader2, Trash2, Video } from 'lucide-react'
 import VideoPoster from '../../components/VideoPoster'
 import {
-  VIDEO_CATEGORIES,
-  VIDEO_CATEGORY_LABELS,
+  BUILTIN_VIDEO_CATEGORIES,
   THUMBNAIL_ACCEPT,
   VIDEO_STATUS,
   validateThumbnailFile,
+  videoCategoryLabel,
   videoStatusLabel,
   type AdminVideo,
+  type CustomVideoCategory,
   type VideoCategory,
   type VideoView,
 } from '@/lib/videoTypes'
@@ -26,8 +27,19 @@ import {
   useAction,
 } from './ui'
 
-export default function VideoManager({ view }: { view: VideoView }) {
-  const grouped = VIDEO_CATEGORIES.map((category) => ({
+function allManagerCategoryIds(customCategories: CustomVideoCategory[]): VideoCategory[] {
+  return [...BUILTIN_VIDEO_CATEGORIES, ...customCategories.map((entry) => entry.id)]
+}
+
+export default function VideoManager({
+  view,
+  customCategories,
+}: {
+  view: VideoView
+  customCategories: CustomVideoCategory[]
+}) {
+  const categoryIds = allManagerCategoryIds(customCategories)
+  const grouped = categoryIds.map((category) => ({
     category,
     videos: view.videos.filter((video) => video.category === category),
   }))
@@ -38,7 +50,7 @@ export default function VideoManager({ view }: { view: VideoView }) {
       <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-line bg-surface px-6 py-14 text-center">
         <Video className="size-6 text-ink-subtle" aria-hidden="true" />
         <p className="font-medium text-ink">No videos yet</p>
-        <p className="text-sm text-ink-subtle">Upload a video to Training or Archive to get started.</p>
+        <p className="text-sm text-ink-subtle">Upload a video and choose a category to get started.</p>
       </div>
     )
   }
@@ -48,13 +60,21 @@ export default function VideoManager({ view }: { view: VideoView }) {
       {grouped.map(({ category, videos }) => (
         <VideoGroup
           key={category}
-          title={VIDEO_CATEGORY_LABELS[category]}
-          emptyText={`No ${VIDEO_CATEGORY_LABELS[category].toLowerCase()} videos.`}
+          title={videoCategoryLabel(category, customCategories)}
+          emptyText={`No ${videoCategoryLabel(category, customCategories).toLowerCase()} videos.`}
           videos={videos}
+          customCategories={customCategories}
+          categoryIds={categoryIds}
         />
       ))}
       {unassigned.length > 0 && (
-        <VideoGroup title="Unassigned" emptyText="" videos={unassigned} />
+        <VideoGroup
+          title="Unassigned"
+          emptyText=""
+          videos={unassigned}
+          customCategories={customCategories}
+          categoryIds={categoryIds}
+        />
       )}
     </div>
   )
@@ -64,10 +84,14 @@ function VideoGroup({
   title,
   emptyText,
   videos,
+  customCategories,
+  categoryIds,
 }: {
   title: string
   emptyText: string
   videos: AdminVideo[]
+  customCategories: CustomVideoCategory[]
+  categoryIds: VideoCategory[]
 }) {
   return (
     <section className="overflow-hidden rounded-2xl border border-line bg-surface shadow-sm">
@@ -82,7 +106,12 @@ function VideoGroup({
       ) : (
         <ul className="divide-y divide-line">
           {videos.map((video) => (
-            <VideoRow key={video.id} video={video} />
+            <VideoRow
+              key={video.id}
+              video={video}
+              customCategories={customCategories}
+              categoryIds={categoryIds}
+            />
           ))}
         </ul>
       )}
@@ -90,7 +119,15 @@ function VideoGroup({
   )
 }
 
-function VideoRow({ video }: { video: AdminVideo }) {
+function VideoRow({
+  video,
+  customCategories,
+  categoryIds,
+}: {
+  video: AdminVideo
+  customCategories: CustomVideoCategory[]
+  categoryIds: VideoCategory[]
+}) {
   const [title, setTitle] = useState(video.title)
   const [description, setDescription] = useState(video.description)
   const [confirmDelete, setConfirmDelete] = useState(false)
@@ -229,7 +266,7 @@ function VideoRow({ video }: { video: AdminVideo }) {
           value={video.category ?? ''}
           onChange={(e) => {
             const next = e.target.value
-            if (next === 'training' || next === 'archive') {
+            if (next && categoryIds.includes(next)) {
               run(() => moveVideo(video.id, next))
             }
           }}
@@ -238,9 +275,9 @@ function VideoRow({ video }: { video: AdminVideo }) {
           className={`${selectClass} max-w-56`}
         >
           {!video.category && <option value="">Unassigned</option>}
-          {VIDEO_CATEGORIES.map((category: VideoCategory) => (
+          {categoryIds.map((category) => (
             <option key={category} value={category}>
-              {VIDEO_CATEGORY_LABELS[category]}
+              {videoCategoryLabel(category, customCategories)}
             </option>
           ))}
         </select>

@@ -65,6 +65,7 @@ function assertFileName(name: unknown): asserts name is string {
     typeof name !== 'string' ||
     name.length === 0 ||
     name === MANIFEST_NAME ||
+    name === '_video-categories.json' ||
     name.includes('/') ||
     name.includes('\\')
   ) {

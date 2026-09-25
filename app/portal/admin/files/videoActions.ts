@@ -6,16 +6,23 @@ import {
   createVideo,
   deleteVideo as deleteStreamVideo,
   signTusUpload,
+  syncVideoCategoryCollections,
   updateVideoDetails,
   uploadVideoThumbnail as uploadStreamVideoThumbnail,
   VIDEOS_TAG,
 } from '@/lib/bunnyStream'
+import {
+  VIDEO_CATEGORIES_TAG,
+  addCustomVideoCategory as persistCustomVideoCategory,
+  isAllowedVideoCategoryId,
+  readCustomVideoCategories,
+  removeCustomVideoCategory as deleteCustomVideoCategory,
+} from '@/lib/videoCategoryStore'
 import type { ActionResult } from '@/lib/libraryTypes'
 import {
   MAX_VIDEO_DESCRIPTION_LENGTH,
   MAX_VIDEO_TITLE_LENGTH,
   contentTypeForThumbnail,
-  isVideoCategory,
   validateThumbnailFile,
   type VideoCategory,
 } from '@/lib/videoTypes'
@@ -34,9 +41,19 @@ function assertVideoId(videoId: unknown): asserts videoId is string {
 
 async function revalidateVideos() {
   updateTag(VIDEOS_TAG)
+  updateTag(VIDEO_CATEGORIES_TAG)
   revalidatePath('/portal/admin/files')
   revalidatePath('/portal/videos')
   revalidatePath('/portal/archive')
+}
+
+async function assertVideoCategory(category: unknown): Promise<VideoCategory> {
+  const custom = await readCustomVideoCategories({ fresh: true })
+  const customIds = custom.map((entry) => entry.id)
+  if (typeof category !== 'string' || !isAllowedVideoCategoryId(category, custom)) {
+    throw new ValidationError('Choose a video category.')
+  }
+  return category
 }
 
 async function run(fn: () => Promise<void>): Promise<ActionResult> {
@@ -64,11 +81,11 @@ export async function createStreamUpload(input: {
 }): Promise<CreateStreamUploadResult> {
   try {
     await requireAdmin()
-    if (!isVideoCategory(input.category)) throw new ValidationError('Choose Training or Archive.')
+    const category = await assertVideoCategory(input.category)
     const title = cleanText(input.title, MAX_VIDEO_TITLE_LENGTH)
     if (!title) throw new ValidationError('Title is required.')
 
-    const { libraryId, videoId } = await createVideo(title, input.category)
+    const { libraryId, videoId } = await createVideo(title, category)
     const { expire, signature } = signTusUpload(videoId)
     await revalidateVideos()
     return { ok: true, libraryId, videoId, expire, signature }
@@ -104,8 +121,21 @@ export async function updateVideo(input: {
 export async function moveVideo(videoId: string, category: VideoCategory): Promise<ActionResult> {
   return run(async () => {
     assertVideoId(videoId)
-    if (!isVideoCategory(category)) throw new ValidationError('Choose Training or Archive.')
-    await updateVideoDetails(videoId, { category })
+    const nextCategory = await assertVideoCategory(category)
+    await updateVideoDetails(videoId, { category: nextCategory })
+  })
+}
+
+export async function addCustomVideoCategory(label: string): Promise<ActionResult> {
+  return run(async () => {
+    await persistCustomVideoCategory(label)
+    await syncVideoCategoryCollections()
+  })
+}
+
+export async function removeCustomVideoCategory(categoryId: string): Promise<ActionResult> {
+  return run(async () => {
+    await deleteCustomVideoCategory(categoryId)
   })
 }
 

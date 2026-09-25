@@ -3,12 +3,13 @@
 import { useRef, useState } from 'react'
 import { CheckCircle2, CloudUpload, ImagePlus, Loader2, X, XCircle } from 'lucide-react'
 import {
+  BUILTIN_VIDEO_CATEGORIES,
   THUMBNAIL_ACCEPT,
   VIDEO_ACCEPT,
-  VIDEO_CATEGORIES,
-  VIDEO_CATEGORY_LABELS,
   validateThumbnailFile,
   validateVideoFile,
+  videoCategoryLabel,
+  type CustomVideoCategory,
   type VideoCategory,
 } from '@/lib/videoTypes'
 import { useStreamUpload } from './useStreamUpload'
@@ -26,7 +27,15 @@ type QueueItem = {
   error?: string
 }
 
-export default function VideoUploadPanel() {
+function allUploadCategoryIds(customCategories: CustomVideoCategory[]): VideoCategory[] {
+  return [...BUILTIN_VIDEO_CATEGORIES, ...customCategories.map((entry) => entry.id)]
+}
+
+export default function VideoUploadPanel({
+  customCategories,
+}: {
+  customCategories: CustomVideoCategory[]
+}) {
   const uploadVideo = useStreamUpload()
   const inputRef = useRef<HTMLInputElement>(null)
   const [queue, setQueue] = useState<QueueItem[]>([])
@@ -123,7 +132,7 @@ export default function VideoUploadPanel() {
           <h2 className="text-lg font-semibold text-ink">Upload videos</h2>
           <p className="text-sm text-ink-muted">
             MP4, MOV, or WebM, up to 5 GB each. Add an optional JPG, PNG, or WebP thumbnail per
-            video for the training and archive galleries.
+            video for the training, archive, guest speaker, and event galleries.
           </p>
         </div>
         <label className="flex flex-col gap-1.5 text-xs font-medium uppercase tracking-wide text-ink-muted">
@@ -134,9 +143,9 @@ export default function VideoUploadPanel() {
             disabled={running}
             className="rounded-lg border border-line bg-surface px-3 py-2 text-sm normal-case tracking-normal text-ink outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
           >
-            {VIDEO_CATEGORIES.map((id) => (
+            {allUploadCategoryIds(customCategories).map((id) => (
               <option key={id} value={id}>
-                {VIDEO_CATEGORY_LABELS[id]}
+                {videoCategoryLabel(id, customCategories)}
               </option>
             ))}
           </select>
