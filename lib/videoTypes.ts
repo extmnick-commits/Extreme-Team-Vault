@@ -39,6 +39,9 @@ export function bunnyStreamThumbnailCandidates(
   const mediadelivery = `https://thumb.mediadelivery.net/${item.libraryId}/${item.bunnyVideoId}/${file}`
   if (!urls.includes(mediadelivery)) urls.push(mediadelivery)
 
+  const proxy = `/api/portal/video-thumbnail/${encodeURIComponent(item.bunnyVideoId)}`
+  if (!urls.includes(proxy)) urls.push(proxy)
+
   return urls
 }
 

@@ -1,7 +1,6 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import Image from 'next/image'
 import { Clock, Play, Video } from 'lucide-react'
 import { bunnyStreamThumbnailCandidates, type VideoItem } from '@/lib/videoTypes'
 
@@ -40,7 +39,6 @@ export default function VideoPoster({
     [libraryId, bunnyVideoId, thumbnailUrl, thumbnailFileName],
   )
   const [index, setIndex] = useState(0)
-  const [useNativeImg, setUseNativeImg] = useState(false)
 
   const src = candidates[index]
   const hasImage = Boolean(src && index < candidates.length)
@@ -48,11 +46,6 @@ export default function VideoPoster({
   function handleError() {
     if (index + 1 < candidates.length) {
       setIndex((i) => i + 1)
-      setUseNativeImg(false)
-      return
-    }
-    if (!useNativeImg && src) {
-      setUseNativeImg(true)
       return
     }
     setIndex(candidates.length)
@@ -65,25 +58,18 @@ export default function VideoPoster({
       } ${className}`}
     >
       {hasImage ? (
-        useNativeImg ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={src}
-            alt=""
-            className="absolute inset-0 size-full object-cover transition-transform duration-500 group-hover:scale-[1.03] max-md:group-hover:scale-100"
-            onError={handleError}
-          />
-        ) : (
-          <Image
-            src={src!}
-            alt=""
-            fill
-            sizes={sizes}
-            priority={priority}
-            className="object-cover transition-transform duration-500 group-hover:scale-[1.03] max-md:group-hover:scale-100"
-            onError={handleError}
-          />
-        )
+        // Bunny Stream CDN blocks requests without a Referer; next/image fetches server-side and gets 403.
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={src}
+          alt=""
+          sizes={sizes}
+          decoding={priority ? 'sync' : 'async'}
+          fetchPriority={priority ? 'high' : 'auto'}
+          referrerPolicy="strict-origin-when-cross-origin"
+          className="absolute inset-0 size-full object-cover transition-transform duration-500 group-hover:scale-[1.03] max-md:group-hover:scale-100"
+          onError={handleError}
+        />
       ) : (
         <span className="absolute inset-x-0 bottom-0 flex items-center gap-2 p-3 pr-20">
           <Video className="size-4 shrink-0 text-violet-400" aria-hidden="true" />

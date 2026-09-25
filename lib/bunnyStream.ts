@@ -28,6 +28,8 @@ type StreamVideo = {
   encodeProgress: number
   collectionId: string
   thumbnailFileName: string
+  /** CDN URL returned by Bunny (requires Referer on the Stream pull zone). */
+  apiThumbnailUrl?: string
   metaTags: StreamMetaTag[]
 }
 
@@ -159,6 +161,10 @@ function parseVideo(value: unknown): StreamVideo | null {
     collectionId: typeof value.collectionId === 'string' ? value.collectionId : '',
     thumbnailFileName:
       typeof value.thumbnailFileName === 'string' ? value.thumbnailFileName : 'thumbnail.jpg',
+    apiThumbnailUrl:
+      typeof value.thumbnailUrl === 'string' && value.thumbnailUrl.trim()
+        ? value.thumbnailUrl.trim()
+        : undefined,
     metaTags: parseMetaTags(value.metaTags),
   }
 }
@@ -197,7 +203,9 @@ function toAdminVideo(
     libraryId,
     duration: formatVideoDuration(video.length),
     category: collections.get(video.collectionId) ?? null,
-    thumbnailUrl: primaryStreamThumbnailUrl(libraryId, video.guid, thumbnailFileName, cdnUrl),
+    thumbnailUrl:
+      video.apiThumbnailUrl ??
+      primaryStreamThumbnailUrl(libraryId, video.guid, thumbnailFileName, cdnUrl),
     thumbnailFileName,
     status: video.status,
     encodeProgress: video.encodeProgress,
@@ -391,6 +399,45 @@ export async function deleteVideo(videoId: string): Promise<void> {
     method: 'DELETE',
     fresh: true,
   })
+}
+
+/** Referer sent when fetching Stream CDN assets (pull zone hotlink protection). */
+export function streamCdnReferer(): string {
+  const explicit = process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/+$/, '')
+  if (explicit) return `${explicit}/`
+  const vercel = process.env.VERCEL_URL?.trim()
+  if (vercel) return `https://${vercel}/`
+  return 'http://localhost:3000/'
+}
+
+export async function fetchStreamThumbnail(
+  thumbnailUrl: string,
+): Promise<{ body: ArrayBuffer; contentType: string }> {
+  const response = await fetch(thumbnailUrl, {
+    headers: { Referer: streamCdnReferer() },
+    cache: 'no-store',
+  })
+  if (!response.ok) {
+    throw new BunnyStreamError(
+      `Stream thumbnail fetch failed (${response.status} ${response.statusText}).`,
+    )
+  }
+  const contentType = response.headers.get('content-type') ?? 'image/jpeg'
+  return { body: await response.arrayBuffer(), contentType }
+}
+
+export async function getStreamVideoThumbnailUrl(videoId: string): Promise<string> {
+  const video = await getVideo(videoId)
+  const config = readConfig()
+  const cdnUrl = config ? await resolveStreamCdnBase(config) : ''
+  const file = video.thumbnailFileName || 'thumbnail.jpg'
+  const libraryId = config?.libraryId ?? ''
+  return (
+    video.apiThumbnailUrl ??
+    (libraryId
+      ? primaryStreamThumbnailUrl(libraryId, video.guid, file, cdnUrl)
+      : '')
+  )
 }
 
 export async function uploadVideoThumbnail(
