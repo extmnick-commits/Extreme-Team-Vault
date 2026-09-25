@@ -21,11 +21,19 @@ import {
   type LibraryManifest,
 } from '@/lib/bunnyStorage'
 import {
+  documentCoverObjectName,
+  isDocumentCoverObjectName,
+} from '@/lib/documentCovers'
+import {
   BLOB_STAGING_PREFIX,
   isLibrary,
   type ActionResult,
   type Library,
 } from '@/lib/libraryTypes'
+import {
+  contentTypeForThumbnail,
+  validateThumbnailFile,
+} from '@/lib/videoTypes'
 
 const MAX_TITLE_LENGTH = 200
 const MAX_DESCRIPTION_LENGTH = 500
@@ -34,13 +42,20 @@ const MAX_BULK_FILES = 500
 
 class ValidationError extends Error {}
 
+function revalidateLibraryPaths(library: Library) {
+  updateTag(libraryTag(library))
+  revalidatePath('/portal/admin/files')
+  if (library === 'documents') {
+    revalidatePath('/portal/documents', 'layout')
+  }
+}
+
 async function run(library: unknown, fn: (library: Library) => Promise<void>): Promise<ActionResult> {
   try {
     await requireAdmin()
     if (!isLibrary(library)) throw new ValidationError('Unknown library.')
     await fn(library)
-    updateTag(libraryTag(library))
-    revalidatePath('/portal/admin/files')
+    revalidateLibraryPaths(library)
     return { ok: true }
   } catch (error) {
     console.error('[admin/files]', error)
@@ -49,6 +64,13 @@ async function run(library: unknown, fn: (library: Library) => Promise<void>): P
       error: error instanceof Error ? error.message : 'Something went wrong.',
     }
   }
+}
+
+async function deleteStoredCover(library: Library, thumbnailName: string | undefined) {
+  if (!thumbnailName || !isDocumentCoverObjectName(thumbnailName)) return
+  await deleteObject(library, thumbnailName).catch((error) =>
+    console.error('[admin/files] Failed to delete cover', error),
+  )
 }
 
 async function updateManifest(
@@ -153,14 +175,21 @@ async function ingestStagedBlob(
 // Files
 // ---------------------------------------------------------------------------
 
+export type FinalizeUploadResult =
+  | { ok: true; name: string }
+  | { ok: false; error: string }
+
 export async function finalizeUpload(input: {
   library: Library
   blobUrl: string
   originalName: string
   title?: string
   sectionId?: string | null
-}): Promise<ActionResult> {
-  return run(input.library, async (library) => {
+}): Promise<FinalizeUploadResult> {
+  try {
+    await requireAdmin()
+    if (!isLibrary(input.library)) throw new ValidationError('Unknown library.')
+    const library = input.library
     const name = await ingestStagedBlob(library, input.blobUrl, input.originalName)
 
     await updateManifest(library, (manifest) => {
@@ -172,16 +201,30 @@ export async function finalizeUpload(input: {
         order: nextOrder(manifest, sectionId),
       }
     })
-  })
+
+    revalidateLibraryPaths(library)
+    return { ok: true, name }
+  } catch (error) {
+    console.error('[admin/files]', error)
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : 'Something went wrong.',
+    }
+  }
 }
+
+export type ReplaceFileResult = { ok: true; name: string } | { ok: false; error: string }
 
 export async function replaceFile(input: {
   library: Library
   name: string
   blobUrl: string
   originalName: string
-}): Promise<ActionResult> {
-  return run(input.library, async (library) => {
+}): Promise<ReplaceFileResult> {
+  try {
+    await requireAdmin()
+    if (!isLibrary(input.library)) throw new ValidationError('Unknown library.')
+    const library = input.library
     const oldName = input.name
     assertFileName(oldName)
 
@@ -190,23 +233,35 @@ export async function replaceFile(input: {
       throw new ValidationError('The file you are replacing no longer exists.')
     }
 
-    // A new object name sidesteps Bunny CDN serving a cached copy of the old file.
     const newName = await ingestStagedBlob(library, input.blobUrl, input.originalName)
 
-    await updateManifest(library, (manifest) => {
-      const entry = manifest.files[oldName] ?? {
+    const manifest = await readManifest(library, { fresh: true })
+    const oldEntry = manifest.files[oldName]
+    await deleteStoredCover(library, oldEntry?.thumbnailName)
+
+    await updateManifest(library, (next) => {
+      const entry = next.files[oldName] ?? {
         sectionId: null,
-        order: nextOrder(manifest, null),
+        order: nextOrder(next, null),
       }
-      manifest.files[newName] = {
-        ...entry,
+      const { thumbnailName: _removed, ...entryWithoutCover } = entry
+      next.files[newName] = {
+        ...entryWithoutCover,
         title: entry.title ?? formatTitle(oldName),
       }
-      delete manifest.files[oldName]
+      delete next.files[oldName]
     })
 
     await deleteObject(library, oldName)
-  })
+    revalidateLibraryPaths(library)
+    return { ok: true, name: newName }
+  } catch (error) {
+    console.error('[admin/files]', error)
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : 'Something went wrong.',
+    }
+  }
 }
 
 export async function updateFile(
@@ -290,11 +345,16 @@ export async function deleteFile(library: Library, name: string): Promise<Action
 export async function bulkDeleteFiles(library: Library, names: string[]): Promise<ActionResult> {
   return run(library, async (lib) => {
     assertFileNames(names)
+    const manifest = await readManifest(lib, { fresh: true })
+    await Promise.all(
+      names.map((name) => deleteStoredCover(lib, manifest.files[name]?.thumbnailName)),
+    )
+
     const results = await Promise.allSettled(names.map((name) => deleteObject(lib, name)))
     const deleted = names.filter((_, i) => results[i].status === 'fulfilled')
 
-    await updateManifest(lib, (manifest) => {
-      for (const name of deleted) delete manifest.files[name]
+    await updateManifest(lib, (next) => {
+      for (const name of deleted) delete next.files[name]
     })
 
     const failed = names.length - deleted.length
@@ -395,6 +455,76 @@ export async function moveSectionTo(
       placeSections(manifest, target, [...siblings, sectionId])
     }),
   )
+}
+
+export async function uploadDocumentCover(formData: FormData): Promise<ActionResult> {
+  const libraryRaw = formData.get('library')
+  const pdfName = formData.get('pdfName')
+  if (!isLibrary(libraryRaw) || libraryRaw !== 'documents') {
+    return { ok: false, error: 'Covers are only supported for PDF documents.' }
+  }
+  try {
+    await requireAdmin()
+    assertFileName(pdfName)
+    const file = formData.get('cover')
+    if (!(file instanceof File) || file.size === 0) {
+      throw new ValidationError('Choose a cover image.')
+    }
+    const validationError = validateThumbnailFile(file)
+    if (validationError) throw new ValidationError(validationError)
+
+    const objects = await listObjects('documents', { fresh: true })
+    if (!objects.some((o) => o.ObjectName === pdfName)) {
+      throw new ValidationError('PDF not found.')
+    }
+
+    const coverName = documentCoverObjectName(pdfName)
+    const manifest = await readManifest('documents', { fresh: true })
+    const previous = manifest.files[pdfName]?.thumbnailName
+    if (previous && previous !== coverName) {
+      await deleteStoredCover('documents', previous)
+    }
+
+    const bytes = new Uint8Array(await file.arrayBuffer())
+    const contentType = contentTypeForThumbnail(file)
+    await putObject('documents', coverName, bytes, {
+      contentType: contentType === 'image/webp' ? 'image/webp' : contentType,
+    })
+
+    await updateManifest('documents', (next) => {
+      const entry = next.files[pdfName] ?? {
+        sectionId: null,
+        order: nextOrder(next, null),
+      }
+      next.files[pdfName] = { ...entry, thumbnailName: coverName }
+    })
+
+    revalidateLibraryPaths('documents')
+    return { ok: true }
+  } catch (error) {
+    console.error('[admin/files]', error)
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : 'Could not upload cover.',
+    }
+  }
+}
+
+export async function removeDocumentCover(pdfName: string): Promise<ActionResult> {
+  return run('documents', async (library) => {
+    assertFileName(pdfName)
+    const manifest = await readManifest(library, { fresh: true })
+    const thumbnailName = manifest.files[pdfName]?.thumbnailName
+    if (!thumbnailName) return
+
+    await deleteStoredCover(library, thumbnailName)
+    await updateManifest(library, (next) => {
+      const entry = next.files[pdfName]
+      if (!entry) return
+      const { thumbnailName: _removed, ...rest } = entry
+      next.files[pdfName] = rest
+    })
+  })
 }
 
 export async function deleteSection(library: Library, sectionId: string): Promise<ActionResult> {

@@ -18,6 +18,7 @@ import {
   type Library,
   type LibraryFile,
 } from '@/lib/libraryTypes'
+import DocumentCoverControls, { uploadCoverFromPdfFile } from './DocumentCoverControls'
 import { deleteFile, moveFile, replaceFile, updateFile } from './actions'
 import { dndId } from './model'
 import {
@@ -95,7 +96,16 @@ export default function FileRow({
         blobUrl,
         originalName: next.name,
       })
-      if (!result.ok) setError(result.error)
+      if (!result.ok) {
+        setError(result.error)
+        return
+      }
+      if (library === 'documents') {
+        const coverResult = await uploadCoverFromPdfFile(result.name, next)
+        if (!coverResult.ok) {
+          setError(`File saved, but cover failed: ${coverResult.error}`)
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Replace failed.')
     } finally {
@@ -132,6 +142,9 @@ export default function FileRow({
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col gap-3 lg:flex-row lg:items-start">
+        {library === 'documents' && (
+          <DocumentCoverControls file={file} disabled={busy} onError={setError} />
+        )}
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           <div className="flex flex-wrap items-center gap-2 text-xs text-ink-subtle">
             <span className="rounded-full bg-zinc-100 px-2 py-0.5 font-medium text-ink-muted tabular-nums">

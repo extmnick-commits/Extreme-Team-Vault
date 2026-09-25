@@ -32,6 +32,8 @@ export type BunnyFile = {
   fileType: string
   fileSize: string
   cdnUrl: string
+  /** JPG/PNG/WebP cover preview for PDFs. */
+  thumbnailUrl?: string
 }
 
 export type LibraryFile = BunnyFile & {

@@ -23,6 +23,7 @@ const toRow = (doc: LibraryFile): MediaListRow => ({
   actionLabel: `Download ${doc.fileType}`,
   actionIcon: Download,
   download: true,
+  thumbnailUrl: doc.thumbnailUrl,
 })
 
 export default async function DocumentsPage() {

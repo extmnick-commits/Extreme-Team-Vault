@@ -2,6 +2,7 @@
 
 import { useState, useSyncExternalStore } from 'react'
 import { ChevronLeft, ChevronRight, Download, ExternalLink, FileText } from 'lucide-react'
+import VideoThumbnailImage from './VideoThumbnailImage'
 
 export type ViewerDocument = {
   id: string
@@ -9,6 +10,7 @@ export type ViewerDocument = {
   description: string
   src: string
   badge: string
+  thumbnailUrl?: string
 }
 
 const secondaryButton =
@@ -53,9 +55,7 @@ function MobileDocumentList({ documents }: { documents: ViewerDocument[] }) {
           className="flex flex-col gap-4 rounded-2xl border border-line bg-surface p-4 shadow-sm"
         >
           <div className="flex items-start gap-3">
-            <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-500 ring-1 ring-red-100">
-              <FileText className="size-5" aria-hidden="true" />
-            </span>
+            <DocumentThumb thumbnailUrl={doc.thumbnailUrl} title={doc.title} />
             <div className="flex min-w-0 flex-col gap-1">
               <span className="font-semibold text-ink">{doc.title}</span>
               <span className="text-xs text-ink-subtle tabular-nums">{doc.badge}</span>
@@ -77,6 +77,50 @@ function MobileDocumentList({ documents }: { documents: ViewerDocument[] }) {
         </li>
       ))}
     </ul>
+  )
+}
+
+function DocumentThumb({ thumbnailUrl, title }: { thumbnailUrl?: string; title: string }) {
+  if (thumbnailUrl) {
+    return (
+      <span className="relative block size-11 shrink-0 overflow-hidden rounded-xl bg-zinc-900 ring-1 ring-line">
+        <VideoThumbnailImage src={thumbnailUrl} alt="" />
+      </span>
+    )
+  }
+  return (
+    <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-red-50 text-red-500 ring-1 ring-red-100">
+      <FileText className="size-5" aria-hidden="true" />
+      <span className="sr-only">{title}</span>
+    </span>
+  )
+}
+
+function SidebarThumb({
+  thumbnailUrl,
+  title,
+  active,
+}: {
+  thumbnailUrl?: string
+  title: string
+  active: boolean
+}) {
+  if (thumbnailUrl) {
+    return (
+      <span
+        className={`relative mt-0.5 block size-9 shrink-0 overflow-hidden rounded-lg bg-zinc-900 ring-1 ${
+          active ? 'ring-violet-300' : 'ring-line'
+        }`}
+      >
+        <VideoThumbnailImage src={thumbnailUrl} alt="" />
+      </span>
+    )
+  }
+  return (
+    <FileText
+      className={`mt-0.5 size-4 shrink-0 ${active ? 'text-violet-600' : 'text-ink-subtle'}`}
+      aria-hidden="true"
+    />
   )
 }
 
@@ -112,10 +156,7 @@ function DesktopDocumentViewer({ documents }: { documents: ViewerDocument[] }) {
                       : 'border-transparent hover:bg-zinc-50'
                   }`}
                 >
-                  <FileText
-                    className={`mt-0.5 size-4 shrink-0 ${current ? 'text-violet-600' : 'text-ink-subtle'}`}
-                    aria-hidden="true"
-                  />
+                  <SidebarThumb thumbnailUrl={d.thumbnailUrl} title={d.title} active={current} />
                   <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                     <span
                       className={`line-clamp-2 text-sm font-medium ${current ? 'text-violet-900' : 'text-ink'}`}

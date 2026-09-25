@@ -28,6 +28,7 @@ export default async function DocumentAlbumPage({ params }: Props) {
     description: file.description,
     src: file.cdnUrl,
     badge: `${file.fileType} · ${file.fileSize}`,
+    thumbnailUrl: file.thumbnailUrl,
   }))
 
   return (

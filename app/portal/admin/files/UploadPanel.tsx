@@ -3,7 +3,14 @@
 import { useRef, useState } from 'react'
 import { CheckCircle2, CloudUpload, Loader2, X, XCircle } from 'lucide-react'
 import { ACCEPT_ATTRIBUTE, type GroupOption, type Library } from '@/lib/libraryTypes'
+import DocumentCoverPicker from './DocumentCoverPicker'
+import { postDocumentCoverBlob, postDocumentCoverFile } from './documentCoverClient'
 import { finalizeUpload } from './actions'
+import {
+  applyManualCover,
+  generateCoverFromPdfFile,
+  usePdfCoverRevoke,
+} from './usePdfCoverGeneration'
 import { useBlobUpload, validateFile } from './useBlobUpload'
 
 type QueueStatus = 'pending' | 'uploading' | 'processing' | 'done' | 'error'
@@ -15,6 +22,10 @@ type QueueItem = {
   status: QueueStatus
   progress: number
   error?: string
+  coverBlob?: Blob
+  coverPreview?: string
+  coverGenerating?: boolean
+  coverWarning?: string
 }
 
 export default function UploadPanel({
@@ -32,9 +43,22 @@ export default function UploadPanel({
   const [sectionId, setSectionId] = useState<string>('')
   const [dragging, setDragging] = useState(false)
   const [running, setRunning] = useState(false)
+  const revokePreview = usePdfCoverRevoke()
+  const isDocuments = library === 'documents'
 
   function patch(key: string, changes: Partial<QueueItem>) {
     setQueue((items) => items.map((item) => (item.key === key ? { ...item, ...changes } : item)))
+  }
+
+  function startAutoCover(key: string, file: File) {
+    void generateCoverFromPdfFile(file, revokePreview).then((cover) => {
+      patch(key, {
+        coverBlob: cover.blob,
+        coverPreview: cover.preview,
+        coverGenerating: false,
+        coverWarning: cover.warning,
+      })
+    })
   }
 
   function addFiles(files: FileList | null) {
@@ -48,9 +72,65 @@ export default function UploadPanel({
         status: error ? 'error' : 'pending',
         progress: 0,
         error,
+        coverGenerating: isDocuments && !error,
       }
     })
     setQueue((items) => [...items, ...added])
+    if (isDocuments) {
+      for (const item of added) {
+        if (item.status === 'pending') startAutoCover(item.key, item.file)
+      }
+    }
+  }
+
+  function clearCover(key: string) {
+    setQueue((items) =>
+      items.map((item) => {
+        if (item.key !== key) return item
+        revokePreview(item.coverPreview)
+        return {
+          ...item,
+          coverBlob: undefined,
+          coverPreview: undefined,
+          coverWarning: undefined,
+        }
+      }),
+    )
+  }
+
+  function setManualCover(key: string, file: File) {
+    setQueue((items) =>
+      items.map((item) => {
+        if (item.key !== key) return item
+        const cover = applyManualCover(file, revokePreview, item.coverPreview)
+        return {
+          ...item,
+          coverBlob: cover.blob,
+          coverPreview: cover.preview,
+          coverGenerating: false,
+          coverWarning: cover.warning,
+        }
+      }),
+    )
+  }
+
+  function removeFromQueue(key: string) {
+    setQueue((items) => {
+      const item = items.find((i) => i.key === key)
+      revokePreview(item?.coverPreview)
+      return items.filter((i) => i.key !== key)
+    })
+  }
+
+  async function uploadCover(pdfName: string, item: QueueItem) {
+    if (!item.coverBlob) return
+    const result =
+      item.coverBlob instanceof File
+        ? await postDocumentCoverFile(pdfName, item.coverBlob)
+        : await postDocumentCoverBlob(pdfName, item.coverBlob)
+    if (!result.ok) {
+      patch(item.key, { coverWarning: result.error })
+    }
   }
 
   async function uploadOne(item: QueueItem) {
@@ -68,6 +148,9 @@ export default function UploadPanel({
       })
 
       if (result.ok) {
+        if (isDocuments && item.coverBlob) {
+          await uploadCover(result.name, item)
+        }
         patch(item.key, { status: 'done' })
       } else {
         patch(item.key, { status: 'error', error: result.error })
@@ -96,7 +179,9 @@ export default function UploadPanel({
         <div>
           <h2 className="text-lg font-semibold text-ink">Upload files</h2>
           <p className="text-sm text-ink-muted">
-            {library === 'documents' ? 'PDF files' : 'MP3, M4A, or WAV files'}, up to 500 MB each.
+            {library === 'documents'
+              ? 'PDF files up to 500 MB each. Page 1 is used for the cover preview automatically; you can replace it with your own image.'
+              : 'MP3, M4A, or WAV files, up to 500 MB each.'}
           </p>
         </div>
         <label className="flex flex-col gap-1.5 text-xs font-medium uppercase tracking-wide text-ink-muted">
@@ -161,8 +246,18 @@ export default function UploadPanel({
           {queue.map((item) => (
             <li
               key={item.key}
-              className="flex flex-col gap-2 rounded-lg border border-line bg-zinc-50 p-3 sm:flex-row sm:items-center"
+              className="flex flex-col gap-3 rounded-lg border border-line bg-zinc-50 p-3 sm:flex-row sm:items-start"
             >
+              {isDocuments && item.status === 'pending' && (
+                <DocumentCoverPicker
+                  preview={item.coverPreview}
+                  generating={item.coverGenerating}
+                  disabled={running}
+                  onPick={(file) => setManualCover(item.key, file)}
+                  onClear={() => clearCover(item.key)}
+                />
+              )}
+
               <div className="flex min-w-0 flex-1 flex-col gap-1.5">
                 <span className="truncate text-sm text-ink" title={item.file.name}>
                   {item.file.name}
@@ -186,9 +281,12 @@ export default function UploadPanel({
                     </div>
                   )
                 )}
+                {item.coverWarning && (
+                  <p className="text-xs text-amber-700">{item.coverWarning}</p>
+                )}
                 {item.error && <p className="text-xs text-red-600">{item.error}</p>}
               </div>
-              <div className="flex shrink-0 items-center gap-2 text-xs text-ink-muted">
+              <div className="flex shrink-0 items-center gap-2 self-center text-xs text-ink-muted sm:self-start sm:pt-1">
                 {item.status === 'uploading' && `${Math.round(item.progress)}%`}
                 {item.status === 'processing' && (
                   <>
@@ -206,7 +304,7 @@ export default function UploadPanel({
                 {(item.status === 'pending' || item.status === 'done' || item.status === 'error') && (
                   <button
                     type="button"
-                    onClick={() => setQueue((items) => items.filter((i) => i.key !== item.key))}
+                    onClick={() => removeFromQueue(item.key)}
                     disabled={running}
                     aria-label={`Remove ${item.file.name}`}
                     className="rounded-md p-1 text-ink-subtle transition hover:bg-zinc-100 hover:text-ink"
@@ -225,7 +323,7 @@ export default function UploadPanel({
           <button
             type="button"
             onClick={startUploads}
-            disabled={running}
+            disabled={running || queue.some((i) => i.status === 'pending' && i.coverGenerating)}
             className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-semibold text-white shadow-md shadow-violet-600/30 transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {running && <Loader2 className="size-4 animate-spin" aria-hidden="true" />}

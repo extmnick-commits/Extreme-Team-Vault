@@ -1,4 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
+import VideoThumbnailImage from './VideoThumbnailImage'
 
 export type MediaListRow = {
   id: string
@@ -9,6 +10,7 @@ export type MediaListRow = {
   actionLabel: string
   actionIcon: LucideIcon
   download?: boolean
+  thumbnailUrl?: string
 }
 
 type MediaListProps = {
@@ -29,15 +31,22 @@ export default function MediaList({ rows, icon: RowIcon }: MediaListProps) {
           actionLabel,
           actionIcon: ActionIcon,
           download,
+          thumbnailUrl,
         }) => (
           <li
             key={id}
             className="flex flex-col gap-4 p-4 transition-colors hover:bg-zinc-50 sm:flex-row sm:items-center sm:gap-5 sm:p-5"
           >
             <div className="flex min-w-0 flex-1 items-start gap-4">
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-600 ring-1 ring-violet-100">
-                <RowIcon className="size-5" aria-hidden="true" />
-              </span>
+              {thumbnailUrl ? (
+                <span className="relative block aspect-[4/3] w-16 shrink-0 overflow-hidden rounded-xl bg-zinc-900 ring-1 ring-line">
+                  <VideoThumbnailImage src={thumbnailUrl} alt="" />
+                </span>
+              ) : (
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-600 ring-1 ring-violet-100">
+                  <RowIcon className="size-5" aria-hidden="true" />
+                </span>
+              )}
               <div className="flex min-w-0 flex-col gap-1.5">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-semibold text-ink">{title}</span>

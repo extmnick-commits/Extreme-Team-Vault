@@ -1,4 +1,8 @@
 import 'server-only'
+import {
+  documentCoverCdnUrl,
+  isDocumentCoverObjectName,
+} from './documentCovers'
 import type {
   Library,
   LibraryFile,
@@ -37,6 +41,8 @@ export type ManifestEntry = {
   description?: string
   sectionId: string | null
   order: number
+  /** Bunny object name under _covers/ for PDF preview image. */
+  thumbnailName?: string
 }
 
 export type LibraryManifest = {
@@ -138,14 +144,15 @@ export async function listObjects(
     (item) =>
       !item.IsDirectory &&
       item.ObjectName !== MANIFEST_NAME &&
-      item.ObjectName !== '_video-categories.json', // @see lib/videoCategoryStore.ts
+      item.ObjectName !== '_video-categories.json' &&
+      !isDocumentCoverObjectName(item.ObjectName),
   )
 }
 
 export async function putObject(
   library: Library,
   name: string,
-  body: ReadableStream<Uint8Array> | string,
+  body: ReadableStream<Uint8Array> | Uint8Array | string,
   options: { size?: number; contentType?: string } = {},
 ): Promise<void> {
   const config = getConfig()
@@ -153,21 +160,48 @@ export async function putObject(
     AccessKey: config.apiKey,
     'Content-Type': options.contentType ?? 'application/octet-stream',
   }
-  if (options.size !== undefined) headers['Content-Length'] = String(options.size)
+  const requestBody: BodyInit =
+    body instanceof Uint8Array
+      ? new Blob([body.slice()], { type: options.contentType ?? 'application/octet-stream' })
+      : body
+
+  const byteLength =
+    options.size ?? (body instanceof Uint8Array ? body.byteLength : undefined)
+  if (byteLength !== undefined) headers['Content-Length'] = String(byteLength)
 
   const init: RequestInit & { duplex?: 'half' } = {
     method: 'PUT',
     headers,
-    body,
+    body: requestBody,
     cache: 'no-store',
   }
-  if (typeof body !== 'string') init.duplex = 'half'
+  if (typeof body !== 'string' && !(body instanceof Uint8Array)) init.duplex = 'half'
 
   const response = await fetch(objectUrl(config, library, name), init)
   if (!response.ok) {
     throw new BunnyStorageError(
       `Failed to upload "${library}/${name}": ${response.status} ${response.statusText}`,
     )
+  }
+}
+
+export async function readObject(
+  library: Library,
+  name: string,
+): Promise<{ body: ArrayBuffer; contentType: string }> {
+  const config = getConfig()
+  const response = await fetch(objectUrl(config, library, name), {
+    headers: { AccessKey: config.apiKey },
+    cache: 'no-store',
+  })
+  if (!response.ok) {
+    throw new BunnyStorageError(
+      `Failed to read "${library}/${name}": ${response.status} ${response.statusText}`,
+    )
+  }
+  return {
+    body: await response.arrayBuffer(),
+    contentType: response.headers.get('content-type') ?? 'application/octet-stream',
   }
 }
 
@@ -239,12 +273,17 @@ function parseManifest(value: unknown): LibraryManifest {
   if (typeof raw.files === 'object' && raw.files !== null) {
     for (const [name, entry] of Object.entries(raw.files)) {
       if (typeof entry !== 'object' || entry === null) continue
+      const thumbnailName =
+        typeof entry.thumbnailName === 'string' && isDocumentCoverObjectName(entry.thumbnailName)
+          ? entry.thumbnailName
+          : undefined
       files[name] = {
         title: typeof entry.title === 'string' ? entry.title : undefined,
         description:
           typeof entry.description === 'string' ? entry.description : undefined,
         sectionId: typeof entry.sectionId === 'string' ? entry.sectionId : null,
         order: typeof entry.order === 'number' ? entry.order : 0,
+        thumbnailName,
       }
     }
   }
@@ -377,6 +416,7 @@ function toLibraryFile(
   const sectionId =
     entry?.sectionId && validSectionIds.has(entry.sectionId) ? entry.sectionId : null
 
+  const thumbnailName = entry?.thumbnailName
   return {
     id: item.Guid,
     name: item.ObjectName,
@@ -385,6 +425,10 @@ function toLibraryFile(
     fileType: getFileType(item.ObjectName, library),
     fileSize: formatFileSize(item.Length),
     cdnUrl: `${cdnUrl}/${library}/${encodeURIComponent(item.ObjectName)}`,
+    thumbnailUrl:
+      library === 'documents' && thumbnailName
+        ? documentCoverCdnUrl(cdnUrl, library, thumbnailName)
+        : undefined,
     sectionId,
     customTitle,
     customDescription,
