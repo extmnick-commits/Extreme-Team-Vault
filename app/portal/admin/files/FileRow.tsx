@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import {
   ACCEPT_ATTRIBUTE,
+  isPdfLibrary,
   type GroupOption,
   type Library,
   type LibraryFile,
@@ -100,8 +101,8 @@ export default function FileRow({
         setError(result.error)
         return
       }
-      if (library === 'documents') {
-        const coverResult = await uploadCoverFromPdfFile(result.name, next)
+      if (isPdfLibrary(library)) {
+        const coverResult = await uploadCoverFromPdfFile(library, result.name, next)
         if (!coverResult.ok) {
           setError(`File saved, but cover failed: ${coverResult.error}`)
         }
@@ -142,8 +143,13 @@ export default function FileRow({
       </div>
 
       <div className="flex min-w-0 flex-1 flex-col gap-3 lg:flex-row lg:items-start">
-        {library === 'documents' && (
-          <DocumentCoverControls file={file} disabled={busy} onError={setError} />
+        {isPdfLibrary(library) && (
+          <DocumentCoverControls
+            library={library}
+            file={file}
+            disabled={busy}
+            onError={setError}
+          />
         )}
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           <div className="flex flex-wrap items-center gap-2 text-xs text-ink-subtle">

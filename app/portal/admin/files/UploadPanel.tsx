@@ -2,7 +2,13 @@
 
 import { useRef, useState } from 'react'
 import { CheckCircle2, CloudUpload, Loader2, X, XCircle } from 'lucide-react'
-import { ACCEPT_ATTRIBUTE, type GroupOption, type Library } from '@/lib/libraryTypes'
+import {
+  ACCEPT_ATTRIBUTE,
+  isPdfLibrary,
+  type GroupOption,
+  type Library,
+  type PdfLibrary,
+} from '@/lib/libraryTypes'
 import DocumentCoverPicker from './DocumentCoverPicker'
 import { postDocumentCoverBlob, postDocumentCoverFile } from './documentCoverClient'
 import { finalizeUpload } from './actions'
@@ -44,7 +50,8 @@ export default function UploadPanel({
   const [dragging, setDragging] = useState(false)
   const [running, setRunning] = useState(false)
   const revokePreview = usePdfCoverRevoke()
-  const isDocuments = library === 'documents'
+  const isPdf = isPdfLibrary(library)
+  const pdfLibrary: PdfLibrary | null = isPdf ? library : null
 
   function patch(key: string, changes: Partial<QueueItem>) {
     setQueue((items) => items.map((item) => (item.key === key ? { ...item, ...changes } : item)))
@@ -72,11 +79,11 @@ export default function UploadPanel({
         status: error ? 'error' : 'pending',
         progress: 0,
         error,
-        coverGenerating: isDocuments && !error,
+        coverGenerating: isPdf && !error,
       }
     })
     setQueue((items) => [...items, ...added])
-    if (isDocuments) {
+    if (isPdf) {
       for (const item of added) {
         if (item.status === 'pending') startAutoCover(item.key, item.file)
       }
@@ -122,12 +129,12 @@ export default function UploadPanel({
     })
   }
 
-  async function uploadCover(pdfName: string, item: QueueItem) {
+  async function uploadCover(pdfLibrary: PdfLibrary, pdfName: string, item: QueueItem) {
     if (!item.coverBlob) return
     const result =
       item.coverBlob instanceof File
-        ? await postDocumentCoverFile(pdfName, item.coverBlob)
-        : await postDocumentCoverBlob(pdfName, item.coverBlob)
+        ? await postDocumentCoverFile(pdfLibrary, pdfName, item.coverBlob)
+        : await postDocumentCoverBlob(pdfLibrary, pdfName, item.coverBlob)
     if (!result.ok) {
       patch(item.key, { coverWarning: result.error })
     }
@@ -148,8 +155,8 @@ export default function UploadPanel({
       })
 
       if (result.ok) {
-        if (isDocuments && item.coverBlob) {
-          await uploadCover(result.name, item)
+        if (pdfLibrary && item.coverBlob) {
+          await uploadCover(pdfLibrary, result.name, item)
         }
         patch(item.key, { status: 'done' })
       } else {
@@ -179,7 +186,7 @@ export default function UploadPanel({
         <div>
           <h2 className="text-lg font-semibold text-ink">Upload files</h2>
           <p className="text-sm text-ink-muted">
-            {library === 'documents'
+            {isPdf
               ? 'PDF files up to 500 MB each. Page 1 is used for the cover preview automatically; you can replace it with your own image.'
               : 'MP3, M4A, or WAV files, up to 500 MB each.'}
           </p>
@@ -248,7 +255,7 @@ export default function UploadPanel({
               key={item.key}
               className="flex flex-col gap-3 rounded-lg border border-line bg-zinc-50 p-3 sm:flex-row sm:items-start"
             >
-              {isDocuments && item.status === 'pending' && (
+              {isPdf && item.status === 'pending' && (
                 <DocumentCoverPicker
                   preview={item.coverPreview}
                   generating={item.coverGenerating}

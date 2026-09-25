@@ -6,6 +6,7 @@ import {
   ALLOWED_CONTENT_TYPES,
   BLOB_STAGING_PREFIX,
   MAX_UPLOAD_BYTES,
+  isPdfLibrary,
   type Library,
 } from '@/lib/libraryTypes'
 
@@ -27,7 +28,7 @@ export function contentTypeFor(file: File): string {
 export function validateFile(file: File, library: Library): string | undefined {
   if (file.size > MAX_UPLOAD_BYTES) return 'File is larger than 500 MB.'
   if (!ALLOWED_CONTENT_TYPES[library].includes(contentTypeFor(file))) {
-    return library === 'documents'
+    return isPdfLibrary(library)
       ? 'Only PDF files are allowed.'
       : 'Only MP3, M4A, or WAV audio is allowed.'
   }

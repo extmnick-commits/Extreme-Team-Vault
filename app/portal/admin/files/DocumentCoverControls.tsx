@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useRef, useState } from 'react'
 import { Loader2, RefreshCw, Trash2 } from 'lucide-react'
-import type { LibraryFile } from '@/lib/libraryTypes'
+import type { LibraryFile, PdfLibrary } from '@/lib/libraryTypes'
 import { THUMBNAIL_ACCEPT } from '@/lib/videoTypes'
 import DocumentCoverPicker from './DocumentCoverPicker'
 import {
@@ -16,10 +16,12 @@ import { removeDocumentCover } from './actions'
 import { ghostButtonClass, iconButtonClass } from './ui'
 
 export default function DocumentCoverControls({
+  library,
   file,
   disabled,
   onError,
 }: {
+  library: PdfLibrary
   file: LibraryFile
   disabled: boolean
   onError: (message: string | null) => void
@@ -37,7 +39,7 @@ export default function DocumentCoverControls({
   async function uploadBlob(blob: Blob) {
     setBusy(true)
     onError(null)
-    const result = await postDocumentCoverBlob(file.name, blob)
+    const result = await postDocumentCoverBlob(library, file.name, blob)
     setBusy(false)
     if (!result.ok) {
       onError(result.error)
@@ -53,7 +55,7 @@ export default function DocumentCoverControls({
     setBusy(true)
     onError(null)
     try {
-      const bytes = await fetchPdfBytesForCover(file.name, file.cdnUrl)
+      const bytes = await fetchPdfBytesForCover(library, file.name, file.cdnUrl)
       const blob = await renderPdfCover(bytes)
       await uploadBlob(blob)
     } catch (error) {
@@ -65,7 +67,7 @@ export default function DocumentCoverControls({
   async function removeCover() {
     setBusy(true)
     onError(null)
-    const result = await removeDocumentCover(file.name)
+    const result = await removeDocumentCover(file.name, library)
     setBusy(false)
     if (!result.ok) {
       onError(result.error)
@@ -87,7 +89,7 @@ export default function DocumentCoverControls({
           void (async () => {
             setBusy(true)
             onError(null)
-            const result = await postDocumentCoverFile(file.name, picked)
+            const result = await postDocumentCoverFile(library, file.name, picked)
             setBusy(false)
             if (!result.ok) {
               onError(result.error)
@@ -150,7 +152,7 @@ export default function DocumentCoverControls({
               void (async () => {
                 setBusy(true)
                 onError(null)
-                const result = await postDocumentCoverFile(file.name, picked)
+                const result = await postDocumentCoverFile(library, file.name, picked)
                 setBusy(false)
                 if (!result.ok) {
                   onError(result.error)
@@ -170,7 +172,11 @@ export default function DocumentCoverControls({
 }
 
 /** Call after replacing a PDF to rebuild the cover from the new file bytes. */
-export async function uploadCoverFromPdfFile(pdfName: string, pdfFile: File) {
+export async function uploadCoverFromPdfFile(
+  library: PdfLibrary,
+  pdfName: string,
+  pdfFile: File,
+) {
   const blob = await renderPdfCover(pdfFile)
-  return postDocumentCoverBlob(pdfName, blob)
+  return postDocumentCoverBlob(library, pdfName, blob)
 }

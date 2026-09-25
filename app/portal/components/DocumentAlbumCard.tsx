@@ -8,9 +8,13 @@ const PREVIEW_COUNT = 3
 export default function DocumentAlbumCard({
   album,
   label,
+  basePath = '/portal/documents',
+  countLabel = { one: 'doc', other: 'docs' },
 }: {
   album: LibraryGroup
   label?: string
+  basePath?: string
+  countLabel?: { one: string; other: string }
 }) {
   const count = album.files.length
   const preview = album.files.slice(0, PREVIEW_COUNT)
@@ -19,7 +23,7 @@ export default function DocumentAlbumCard({
 
   return (
     <Link
-      href={`/portal/documents/${album.id}`}
+      href={`${basePath}/${album.id}`}
       className="group flex h-full flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-sm transition hover:-translate-y-0.5 hover:border-zinc-300 hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500"
     >
       <div className="relative aspect-4/3 overflow-hidden bg-zinc-900 sm:aspect-square">
@@ -61,7 +65,7 @@ export default function DocumentAlbumCard({
         )}
         <div className="mt-auto flex items-center justify-between gap-2 pt-2">
           <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-ink-muted tabular-nums">
-            {count} {count === 1 ? 'doc' : 'docs'}
+            {count} {count === 1 ? countLabel.one : countLabel.other}
           </span>
           <span className="flex items-center gap-1 text-xs font-semibold text-violet-600 transition group-hover:opacity-100 [@media(hover:hover)]:opacity-0">
             View

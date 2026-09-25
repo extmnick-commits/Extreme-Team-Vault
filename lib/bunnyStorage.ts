@@ -4,12 +4,7 @@ import {
   encodeBunnyObjectPath,
   isDocumentCoverObjectName,
 } from './documentCovers'
-import type {
-  Library,
-  LibraryFile,
-  LibraryGroup,
-  LibraryView,
-} from './libraryTypes'
+import { isPdfLibrary, type Library, type LibraryFile, type LibraryGroup, type LibraryView } from './libraryTypes'
 
 export type BunnyStorageObject = {
   Guid: string
@@ -61,6 +56,7 @@ export const libraryTag = (library: Library) => `bunny:${library}`
 const FALLBACK_FILE_TYPES: Record<Library, string> = {
   documents: 'PDF',
   audio: 'MP3',
+  books: 'PDF',
 }
 
 const SIZE_UNITS = ['B', 'KB', 'MB', 'GB', 'TB'] as const
@@ -151,7 +147,7 @@ export async function listObjects(
     ) {
       return false
     }
-    if (library === 'documents') {
+    if (isPdfLibrary(library)) {
       return getExtension(item.ObjectName).toLowerCase() === 'pdf'
     }
     return true
@@ -435,7 +431,7 @@ function toLibraryFile(
     fileSize: formatFileSize(item.Length),
     cdnUrl: `${cdnUrl}/${library}/${encodeBunnyObjectPath(item.ObjectName)}`,
     thumbnailUrl:
-      library === 'documents' && thumbnailName
+      isPdfLibrary(library) && thumbnailName
         ? documentCoverCdnUrl(cdnUrl, library, thumbnailName)
         : undefined,
     sectionId,

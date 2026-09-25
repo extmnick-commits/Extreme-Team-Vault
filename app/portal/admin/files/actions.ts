@@ -27,8 +27,10 @@ import {
 import {
   BLOB_STAGING_PREFIX,
   isLibrary,
+  isPdfLibrary,
   type ActionResult,
   type Library,
+  type PdfLibrary,
 } from '@/lib/libraryTypes'
 import {
   VIDEO_RESOURCES_STORE_NAME,
@@ -52,6 +54,9 @@ function revalidateLibraryPaths(library: Library) {
   revalidatePath('/portal/admin/files')
   if (library === 'documents') {
     revalidatePath('/portal/documents', 'layout')
+  }
+  if (library === 'books') {
+    revalidatePath('/portal/books', 'layout')
   }
 }
 
@@ -473,9 +478,10 @@ export async function moveSectionTo(
 export async function uploadDocumentCover(formData: FormData): Promise<ActionResult> {
   const libraryRaw = formData.get('library')
   const pdfName = formData.get('pdfName')
-  if (!isLibrary(libraryRaw) || libraryRaw !== 'documents') {
-    return { ok: false, error: 'Covers are only supported for PDF documents.' }
+  if (!isPdfLibrary(libraryRaw)) {
+    return { ok: false, error: 'Covers are only supported for PDF libraries.' }
   }
+  const library: PdfLibrary = libraryRaw
   try {
     await requireAdmin()
     assertFileName(pdfName)
@@ -486,25 +492,25 @@ export async function uploadDocumentCover(formData: FormData): Promise<ActionRes
     const validationError = validateThumbnailFile(file)
     if (validationError) throw new ValidationError(validationError)
 
-    const objects = await listObjects('documents', { fresh: true })
+    const objects = await listObjects(library, { fresh: true })
     if (!objects.some((o) => o.ObjectName === pdfName)) {
       throw new ValidationError('PDF not found.')
     }
 
     const coverName = documentCoverObjectName(pdfName)
-    const manifest = await readManifest('documents', { fresh: true })
+    const manifest = await readManifest(library, { fresh: true })
     const previous = manifest.files[pdfName]?.thumbnailName
     if (previous && previous !== coverName) {
-      await deleteStoredCover('documents', previous)
+      await deleteStoredCover(library, previous)
     }
 
     const bytes = new Uint8Array(await file.arrayBuffer())
     const contentType = contentTypeForThumbnail(file)
-    await putObject('documents', coverName, bytes, {
+    await putObject(library, coverName, bytes, {
       contentType: contentType === 'image/webp' ? 'image/webp' : contentType,
     })
 
-    await updateManifest('documents', (next) => {
+    await updateManifest(library, (next) => {
       const entry = next.files[pdfName] ?? {
         sectionId: null,
         order: nextOrder(next, null),
@@ -512,7 +518,7 @@ export async function uploadDocumentCover(formData: FormData): Promise<ActionRes
       next.files[pdfName] = { ...entry, thumbnailName: coverName }
     })
 
-    revalidateLibraryPaths('documents')
+    revalidateLibraryPaths(library)
     return { ok: true }
   } catch (error) {
     console.error('[admin/files]', error)
@@ -523,15 +529,18 @@ export async function uploadDocumentCover(formData: FormData): Promise<ActionRes
   }
 }
 
-export async function removeDocumentCover(pdfName: string): Promise<ActionResult> {
-  return run('documents', async (library) => {
+export async function removeDocumentCover(
+  pdfName: string,
+  library: PdfLibrary = 'documents',
+): Promise<ActionResult> {
+  return run(library, async (lib) => {
     assertFileName(pdfName)
-    const manifest = await readManifest(library, { fresh: true })
+    const manifest = await readManifest(lib, { fresh: true })
     const thumbnailName = manifest.files[pdfName]?.thumbnailName
     if (!thumbnailName) return
 
-    await deleteStoredCover(library, thumbnailName)
-    await updateManifest(library, (next) => {
+    await deleteStoredCover(lib, thumbnailName)
+    await updateManifest(lib, (next) => {
       const entry = next.files[pdfName]
       if (!entry) return
       const { thumbnailName: _removed, ...rest } = entry

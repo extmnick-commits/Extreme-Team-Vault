@@ -1,5 +1,6 @@
 import {
   Archive,
+  BookOpen,
   FileText,
   FolderCog,
   Headphones,
@@ -39,6 +40,12 @@ export const NAV_ITEMS: NavItem[] = [
     label: 'PDF Documents',
     description: 'Guides, scripts, and reference documents to download.',
     icon: FileText,
+  },
+  {
+    href: '/portal/books',
+    label: 'PDF Book',
+    description: 'Team books and long-form guides to read online.',
+    icon: BookOpen,
   },
   {
     href: '/portal/archive',
