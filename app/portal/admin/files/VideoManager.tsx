@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Clock, ImagePlus, Loader2, Trash2, Video } from 'lucide-react'
 import VideoPoster from '../../components/VideoPoster'
+import VideoThumbnailImage from '../../components/VideoThumbnailImage'
 import {
   BUILTIN_VIDEO_CATEGORIES,
   THUMBNAIL_ACCEPT,
@@ -176,10 +177,9 @@ function VideoRow({
 
   return (
     <li className="flex flex-col gap-3 p-4 lg:flex-row lg:items-start">
-      <div className="relative aspect-video w-full shrink-0 overflow-hidden rounded-lg bg-zinc-100 lg:w-44">
+      <div className="relative aspect-video w-full shrink-0 overflow-hidden rounded-lg bg-zinc-900 lg:w-44">
         {localPreview ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={localPreview} alt="" className="size-full object-cover" />
+          <VideoThumbnailImage src={localPreview} alt="" />
         ) : (
           <VideoPoster video={posterVideo} sizes="176px" hidePlayOverlay className="h-full" />
         )}

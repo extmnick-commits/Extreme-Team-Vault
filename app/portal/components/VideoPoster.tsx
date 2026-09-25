@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react'
 import { Clock, Play, Video } from 'lucide-react'
 import { bunnyStreamThumbnailCandidates, type VideoItem } from '@/lib/videoTypes'
+import VideoThumbnailImage from './VideoThumbnailImage'
 
 type VideoPosterProps = {
   video: Pick<
@@ -53,21 +54,22 @@ export default function VideoPoster({
 
   return (
     <div
-      className={`relative aspect-video w-full overflow-hidden bg-linear-to-br from-violet-100 via-violet-50 to-sky-100 ${
-        large ? 'md:aspect-auto md:h-full md:min-h-80' : ''
-      } ${className}`}
+      className={`relative aspect-video w-full overflow-hidden ${
+        hasImage
+          ? 'bg-zinc-900'
+          : 'bg-linear-to-br from-violet-100 via-violet-50 to-sky-100'
+      } ${large ? 'md:aspect-auto md:h-full md:min-h-80' : ''} ${className}`}
     >
       {hasImage ? (
         // Bunny Stream CDN blocks requests without a Referer; next/image fetches server-side and gets 403.
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        <VideoThumbnailImage
           src={src}
           alt=""
           sizes={sizes}
           decoding={priority ? 'sync' : 'async'}
           fetchPriority={priority ? 'high' : 'auto'}
           referrerPolicy="strict-origin-when-cross-origin"
-          className="absolute inset-0 size-full object-cover transition-transform duration-500 group-hover:scale-[1.03] max-md:group-hover:scale-100"
+          imageClassName="transition-transform duration-500 group-hover:scale-[1.03] max-md:group-hover:scale-100"
           onError={handleError}
         />
       ) : (

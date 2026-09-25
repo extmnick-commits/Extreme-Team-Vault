@@ -12,6 +12,7 @@ import {
   type CustomVideoCategory,
   type VideoCategory,
 } from '@/lib/videoTypes'
+import VideoThumbnailImage from '../../components/VideoThumbnailImage'
 import { useStreamUpload } from './useStreamUpload'
 
 type QueueStatus = 'pending' | 'uploading' | 'processing' | 'done' | 'error'
@@ -290,11 +291,10 @@ function ThumbnailPicker({
   const inputRef = useRef<HTMLInputElement>(null)
 
   return (
-    <div className="relative aspect-video w-full shrink-0 overflow-hidden rounded-lg border border-line bg-surface sm:w-36">
+    <div className="relative aspect-video w-full shrink-0 overflow-hidden rounded-lg border border-line bg-zinc-900 sm:w-36">
       {preview ? (
         <>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={preview} alt="" className="size-full object-cover" />
+          <VideoThumbnailImage src={preview} alt="" />
           {!disabled && (
             <button
               type="button"
@@ -314,7 +314,9 @@ function ThumbnailPicker({
         >
           <ImagePlus className="size-5 text-violet-400" aria-hidden="true" />
           <span className="font-medium">Thumbnail</span>
-          <span className="text-[10px] leading-tight text-ink-subtle">Optional · 16:9 works best</span>
+          <span className="text-[10px] leading-tight text-ink-subtle">
+            Optional · landscape or portrait
+          </span>
           <input
             ref={inputRef}
             type="file"
