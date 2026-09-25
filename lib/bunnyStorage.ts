@@ -141,14 +141,21 @@ export async function listObjects(
   if (!isBunnyStorageObjectArray(data)) {
     throw new BunnyStorageError(`Unexpected response shape for "${library}".`)
   }
-  return data.filter(
-    (item) =>
-      !item.IsDirectory &&
-      item.ObjectName !== MANIFEST_NAME &&
-      item.ObjectName !== '_video-categories.json' &&
-      item.ObjectName !== '_video-resources.json' &&
-      !isDocumentCoverObjectName(item.ObjectName),
-  )
+  return data.filter((item) => {
+    if (
+      item.IsDirectory ||
+      item.ObjectName === MANIFEST_NAME ||
+      item.ObjectName === '_video-categories.json' ||
+      item.ObjectName === '_video-resources.json' ||
+      isDocumentCoverObjectName(item.ObjectName)
+    ) {
+      return false
+    }
+    if (library === 'documents') {
+      return getExtension(item.ObjectName).toLowerCase() === 'pdf'
+    }
+    return true
+  })
 }
 
 export async function putObject(

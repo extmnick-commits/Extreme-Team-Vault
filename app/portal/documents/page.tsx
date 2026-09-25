@@ -1,9 +1,8 @@
 import type { Metadata } from 'next'
-import { Download, FileText } from 'lucide-react'
+import { FileText } from 'lucide-react'
 import { getLibrary } from '@/lib/bunnyStorage'
-import { countGroupFiles, countLibraryFiles, type LibraryFile } from '@/lib/libraryTypes'
+import { countGroupFiles } from '@/lib/libraryTypes'
 import DocumentAlbumCard from '../components/DocumentAlbumCard'
-import MediaList, { type MediaListRow } from '../components/MediaList'
 import PageHeader from '../components/PageHeader'
 import SectionPlaceholder from '../components/SectionPlaceholder'
 
@@ -14,22 +13,14 @@ export const metadata: Metadata = {
 const TITLE = 'PDF Documents'
 const DESCRIPTION = 'Guides, scripts, and reference documents to download.'
 
-const toRow = (doc: LibraryFile): MediaListRow => ({
-  id: doc.id,
-  title: doc.title,
-  description: doc.description,
-  badge: `${doc.fileType} · ${doc.fileSize}`,
-  href: doc.cdnUrl,
-  actionLabel: `Download ${doc.fileType}`,
-  actionIcon: Download,
-  download: true,
-  thumbnailUrl: doc.thumbnailUrl,
-})
+function countOrganizedDocuments(view: Awaited<ReturnType<typeof getLibrary>>): number {
+  return view.sections.reduce((sum, section) => sum + countGroupFiles(section), 0)
+}
 
 export default async function DocumentsPage() {
   const documents = await getLibrary('documents')
 
-  if (countLibraryFiles(documents) === 0) {
+  if (countOrganizedDocuments(documents) === 0) {
     return (
       <SectionPlaceholder
         icon={FileText}
@@ -80,17 +71,6 @@ export default async function DocumentsPage() {
           </section>
         )
       })}
-
-      {documents.unsorted.length > 0 && (
-        <section className="flex flex-col gap-4">
-          {categories.length > 0 && (
-            <h2 className="border-b border-line pb-3 text-base font-semibold text-ink sm:text-lg">
-              Other
-            </h2>
-          )}
-          <MediaList icon={FileText} rows={documents.unsorted.map(toRow)} />
-        </section>
-      )}
     </div>
   )
 }
