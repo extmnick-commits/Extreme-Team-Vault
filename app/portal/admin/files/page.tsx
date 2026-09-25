@@ -11,6 +11,7 @@ import PageHeader from '../../components/PageHeader'
 import FileManager from './FileManager'
 import UploadPanel from './UploadPanel'
 import { readCustomVideoCategories } from '@/lib/videoCategoryStore'
+import { readVideoResources } from '@/lib/videoResources'
 import VideoAdminPanels from './VideoAdminPanels'
 import VideoManager from './VideoManager'
 
@@ -48,8 +49,12 @@ export default async function AdminFilesPage({
     await syncVideoCategoryCollections().catch(() => undefined)
   }
   const videosView = isVideos ? await getAdminVideos({ fresh: true }) : null
+  const documentsForVideos = isVideos
+    ? await getLibrary('documents', { fresh: true })
+    : null
+  const videoResources = isVideos ? await readVideoResources({ fresh: true }) : null
   const filesView = isVideos ? null : await getLibrary(library, { fresh: true })
-  const blobAccess = isVideos ? null : getBlobAccess()
+  const blobAccess = getBlobAccess()
 
   return (
     <div className="flex flex-col gap-8">
@@ -93,11 +98,18 @@ export default async function AdminFilesPage({
             </div>
           )}
           <VideoAdminPanels customCategories={customVideoCategories} />
-          <VideoManager view={videosView} customCategories={customVideoCategories} />
+          {documentsForVideos && videoResources && (
+            <VideoManager
+              view={videosView}
+              customCategories={customVideoCategories}
+              documentsView={documentsForVideos}
+              blobAccess={blobAccess}
+              videoAttachments={videoResources.attachments}
+            />
+          )}
         </>
       ) : (
-        filesView &&
-        blobAccess && (
+        filesView && (
           <>
             {filesView.error && (
               <div className="flex items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 px-4 py-3">

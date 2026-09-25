@@ -73,6 +73,21 @@ export function isVideoCategory(
   )
 }
 
+/** Stored in documents/_video-resources.json */
+export type VideoAttachmentEntry = {
+  documentName: string
+  label?: string
+}
+
+export type VideoLinkedDocument = {
+  id: string
+  title: string
+  description: string
+  cdnUrl: string
+  badge: string
+  thumbnailUrl?: string
+}
+
 export type VideoItem = {
   id: string
   title: string
@@ -84,7 +99,10 @@ export type VideoItem = {
   thumbnailUrl?: string
   /** Bunny Stream thumbnail file name (e.g. thumbnail.jpg). Used for CDN fallback URLs. */
   thumbnailFileName?: string
+  linkedDocuments?: VideoLinkedDocument[]
 }
+
+export const MAX_VIDEO_ATTACHMENT_LABEL_LENGTH = 120
 
 const DEFAULT_THUMBNAIL_FILE = 'thumbnail.jpg'
 

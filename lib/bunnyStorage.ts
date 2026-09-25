@@ -145,6 +145,7 @@ export async function listObjects(
       !item.IsDirectory &&
       item.ObjectName !== MANIFEST_NAME &&
       item.ObjectName !== '_video-categories.json' &&
+      item.ObjectName !== '_video-resources.json' &&
       !isDocumentCoverObjectName(item.ObjectName),
   )
 }

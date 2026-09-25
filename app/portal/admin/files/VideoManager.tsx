@@ -16,6 +16,9 @@ import {
   type VideoCategory,
   type VideoView,
 } from '@/lib/videoTypes'
+import type { LibraryView } from '@/lib/libraryTypes'
+import type { VideoAttachmentEntry } from '@/lib/videoTypes'
+import VideoDocumentAttachments from './VideoDocumentAttachments'
 import { deleteVideo, moveVideo, updateVideo, uploadVideoThumbnail } from './videoActions'
 import {
   ErrorText,
@@ -35,9 +38,15 @@ function allManagerCategoryIds(customCategories: CustomVideoCategory[]): VideoCa
 export default function VideoManager({
   view,
   customCategories,
+  documentsView,
+  blobAccess,
+  videoAttachments,
 }: {
   view: VideoView
   customCategories: CustomVideoCategory[]
+  documentsView: LibraryView
+  blobAccess: 'public' | 'private'
+  videoAttachments: Record<string, VideoAttachmentEntry[]>
 }) {
   const categoryIds = allManagerCategoryIds(customCategories)
   const grouped = categoryIds.map((category) => ({
@@ -66,6 +75,9 @@ export default function VideoManager({
           videos={videos}
           customCategories={customCategories}
           categoryIds={categoryIds}
+          documentsView={documentsView}
+          blobAccess={blobAccess}
+          videoAttachments={videoAttachments}
         />
       ))}
       {unassigned.length > 0 && (
@@ -75,6 +87,9 @@ export default function VideoManager({
           videos={unassigned}
           customCategories={customCategories}
           categoryIds={categoryIds}
+          documentsView={documentsView}
+          blobAccess={blobAccess}
+          videoAttachments={videoAttachments}
         />
       )}
     </div>
@@ -87,12 +102,18 @@ function VideoGroup({
   videos,
   customCategories,
   categoryIds,
+  documentsView,
+  blobAccess,
+  videoAttachments,
 }: {
   title: string
   emptyText: string
   videos: AdminVideo[]
   customCategories: CustomVideoCategory[]
   categoryIds: VideoCategory[]
+  documentsView: LibraryView
+  blobAccess: 'public' | 'private'
+  videoAttachments: Record<string, VideoAttachmentEntry[]>
 }) {
   return (
     <section className="overflow-hidden rounded-2xl border border-line bg-surface shadow-sm">
@@ -112,6 +133,9 @@ function VideoGroup({
               video={video}
               customCategories={customCategories}
               categoryIds={categoryIds}
+              documentsView={documentsView}
+              blobAccess={blobAccess}
+              attachments={videoAttachments[video.id] ?? []}
             />
           ))}
         </ul>
@@ -124,10 +148,16 @@ function VideoRow({
   video,
   customCategories,
   categoryIds,
+  documentsView,
+  blobAccess,
+  attachments,
 }: {
   video: AdminVideo
   customCategories: CustomVideoCategory[]
   categoryIds: VideoCategory[]
+  documentsView: LibraryView
+  blobAccess: 'public' | 'private'
+  attachments: VideoAttachmentEntry[]
 }) {
   const [title, setTitle] = useState(video.title)
   const [description, setDescription] = useState(video.description)
@@ -234,6 +264,12 @@ function VideoRow({
             Encoding {Math.round(video.encodeProgress)}%. It will appear on the site when ready.
           </p>
         )}
+        <VideoDocumentAttachments
+          videoId={video.id}
+          attachments={attachments}
+          documentsView={documentsView}
+          blobAccess={blobAccess}
+        />
         <ErrorText error={error} />
         {dirty && (
           <div className="flex gap-2">

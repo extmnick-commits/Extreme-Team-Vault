@@ -31,6 +31,11 @@ import {
   type Library,
 } from '@/lib/libraryTypes'
 import {
+  VIDEO_RESOURCES_STORE_NAME,
+  VIDEO_RESOURCES_TAG,
+  removeDocumentFromAllVideos,
+} from '@/lib/videoResources'
+import {
   contentTypeForThumbnail,
   validateThumbnailFile,
 } from '@/lib/videoTypes'
@@ -88,6 +93,7 @@ function assertFileName(name: unknown): asserts name is string {
     name.length === 0 ||
     name === MANIFEST_NAME ||
     name === '_video-categories.json' ||
+    name === VIDEO_RESOURCES_STORE_NAME ||
     name.includes('/') ||
     name.includes('\\')
   ) {
@@ -356,6 +362,13 @@ export async function bulkDeleteFiles(library: Library, names: string[]): Promis
     await updateManifest(lib, (next) => {
       for (const name of deleted) delete next.files[name]
     })
+
+    if (lib === 'documents' && deleted.length > 0) {
+      await Promise.all(deleted.map((name) => removeDocumentFromAllVideos(name)))
+      updateTag(VIDEO_RESOURCES_TAG)
+      revalidatePath('/portal/videos')
+      revalidatePath('/portal/archive')
+    }
 
     const failed = names.length - deleted.length
     if (failed > 0) {

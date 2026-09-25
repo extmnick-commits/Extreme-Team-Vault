@@ -1,9 +1,15 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Clock, Play, X } from 'lucide-react'
-import type { VideoItem } from '@/lib/videoTypes'
+import { Clock, Download, ExternalLink, FileText, Play, X } from 'lucide-react'
+import type { VideoItem, VideoLinkedDocument } from '@/lib/videoTypes'
 import VideoPoster from './VideoPoster'
+import VideoThumbnailImage from './VideoThumbnailImage'
+
+const secondaryButton =
+  'inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-line bg-surface px-4 text-sm font-medium text-ink shadow-sm transition-colors hover:bg-zinc-50 sm:min-h-10'
+const primaryButton =
+  'inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 text-sm font-semibold text-white shadow-sm shadow-violet-600/30 transition-colors hover:bg-violet-700 sm:min-h-10'
 
 type VideoModalProps = {
   video: VideoItem
@@ -32,6 +38,7 @@ export default function VideoModal({ video, onClose }: VideoModalProps) {
 
   const titleId = `video-modal-title-${video.id}`
   const embedSrc = `https://player.mediadelivery.net/embed/${video.libraryId}/${video.bunnyVideoId}?autoplay=true`
+  const materials = video.linkedDocuments ?? []
 
   return (
     <div
@@ -98,7 +105,58 @@ export default function VideoModal({ video, onClose }: VideoModalProps) {
             <X className="size-5" aria-hidden="true" />
           </button>
         </div>
+
+        {materials.length > 0 && (
+          <section className="border-t border-line px-4 pb-4 sm:px-6 sm:pb-6">
+            <h3 className="mb-3 text-sm font-semibold text-ink">Training materials</h3>
+            <ul className="flex flex-col gap-3">
+              {materials.map((doc) => (
+                <TrainingMaterialRow key={doc.id} doc={doc} />
+              ))}
+            </ul>
+          </section>
+        )}
       </div>
     </div>
+  )
+}
+
+function TrainingMaterialRow({ doc }: { doc: VideoLinkedDocument }) {
+  return (
+    <li className="flex flex-col gap-3 rounded-xl border border-line bg-zinc-50/80 p-3 sm:flex-row sm:items-center sm:gap-4">
+      <div className="flex min-w-0 flex-1 items-start gap-3">
+        {doc.thumbnailUrl ? (
+          <span className="relative block aspect-[4/3] w-14 shrink-0 overflow-hidden rounded-lg bg-zinc-900 ring-1 ring-line">
+            <VideoThumbnailImage src={doc.thumbnailUrl} alt="" />
+          </span>
+        ) : (
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-violet-50 text-violet-600 ring-1 ring-violet-100">
+            <FileText className="size-5" aria-hidden="true" />
+          </span>
+        )}
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <span className="font-medium text-ink">{doc.title}</span>
+          <span className="text-xs text-ink-subtle tabular-nums">{doc.badge}</span>
+          {doc.description && (
+            <p className="line-clamp-2 text-sm text-ink-muted">{doc.description}</p>
+          )}
+        </div>
+      </div>
+      <div className="flex gap-2 sm:shrink-0">
+        <a
+          href={doc.cdnUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={secondaryButton}
+        >
+          <ExternalLink className="size-4" aria-hidden="true" />
+          Open
+        </a>
+        <a href={doc.cdnUrl} download className={primaryButton}>
+          <Download className="size-4" aria-hidden="true" />
+          Download
+        </a>
+      </div>
+    </li>
   )
 }

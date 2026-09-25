@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { Archive } from 'lucide-react'
+import { enrichVideoList } from '@/lib/enrichVideosWithDocuments'
 import { getVideos } from '@/lib/bunnyStream'
 import PageHeader from '../components/PageHeader'
 import SectionPlaceholder from '../components/SectionPlaceholder'
@@ -13,7 +14,7 @@ const TITLE = 'Archived Streams'
 const DESCRIPTION = 'Replays of past live trainings and opportunity nights.'
 
 export default async function ArchivePage() {
-  const archivedVideos = await getVideos('archive')
+  const archivedVideos = await enrichVideoList(await getVideos('archive'))
 
   if (archivedVideos.length === 0) {
     return (
