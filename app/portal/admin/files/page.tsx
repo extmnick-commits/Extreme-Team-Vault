@@ -12,8 +12,11 @@ import FileManager from './FileManager'
 import UploadPanel from './UploadPanel'
 import { readCustomVideoCategories } from '@/lib/videoCategoryStore'
 import { readVideoResources } from '@/lib/videoResources'
+import LiveRoomSettingsPanel from './LiveRoomSettingsPanel'
 import VideoAdminPanels from './VideoAdminPanels'
 import VideoManager from './VideoManager'
+import { readLiveRoomSettings } from '@/lib/liveRoomStore'
+import { isUsableWherebyUrl } from '@/lib/liveRoomConfig'
 
 export const metadata: Metadata = {
   title: 'Manage Files | Extreme Team Vault',
@@ -23,6 +26,7 @@ export const metadata: Metadata = {
 export const maxDuration = 300
 
 const VIDEO_TAB = 'videos'
+const LIVE_TAB = 'live'
 
 const tabClass = (active: boolean) =>
   `-mb-px border-b-2 px-4 py-2.5 text-sm font-medium transition ${
@@ -40,6 +44,7 @@ export default async function AdminFilesPage({
 
   const { library: requested } = await searchParams
   const isVideos = requested === VIDEO_TAB
+  const isLive = requested === LIVE_TAB
   const library = isLibrary(requested) ? requested : 'documents'
 
   const customVideoCategories = isVideos
@@ -53,7 +58,9 @@ export default async function AdminFilesPage({
     ? await getLibrary('documents', { fresh: true })
     : null
   const videoResources = isVideos ? await readVideoResources({ fresh: true }) : null
-  const filesView = isVideos ? null : await getLibrary(library, { fresh: true })
+  const liveRoomSettings = isLive ? await readLiveRoomSettings({ fresh: true }) : null
+  const envWherebyUrl = process.env.NEXT_PUBLIC_WHEREBY_URL
+  const filesView = isVideos || isLive ? null : await getLibrary(library, { fresh: true })
   const blobAccess = getBlobAccess()
 
   return (
@@ -66,7 +73,7 @@ export default async function AdminFilesPage({
 
       <nav className="flex gap-2 overflow-x-auto border-b border-line" aria-label="Library">
         {LIBRARIES.map((lib) => {
-          const active = !isVideos && lib === library
+          const active = !isVideos && !isLive && lib === library
           return (
             <Link
               key={lib}
@@ -85,9 +92,21 @@ export default async function AdminFilesPage({
         >
           Videos
         </Link>
+        <Link
+          href={`/portal/admin/files?library=${LIVE_TAB}`}
+          aria-current={isLive ? 'page' : undefined}
+          className={tabClass(isLive)}
+        >
+          Live room
+        </Link>
       </nav>
 
-      {isVideos && videosView ? (
+      {isLive && liveRoomSettings ? (
+        <LiveRoomSettingsPanel
+          settings={liveRoomSettings}
+          envWherebyConfigured={isUsableWherebyUrl(envWherebyUrl)}
+        />
+      ) : isVideos && videosView ? (
         <>
           {videosView.error && (
             <div className="flex items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 px-4 py-3">

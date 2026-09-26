@@ -1,5 +1,11 @@
 import type { Metadata } from 'next'
 import { CalendarClock, CalendarPlus, Globe, VideoOff } from 'lucide-react'
+import {
+  LIVE_ROOM_PROVIDER_LABELS,
+  isPlaceholderWherebyUrl,
+  resolveLiveEmbed,
+} from '@/lib/liveRoomConfig'
+import { readLiveRoomSettings } from '@/lib/liveRoomStore'
 
 export const metadata: Metadata = {
   title: 'Live Trainings & Opp Night | Extreme Team Vault',
@@ -49,21 +55,17 @@ function googleCalendarUrl(event: ScheduleEvent) {
   return `https://calendar.google.com/calendar/render?${params}`
 }
 
-function isPlaceholderWherebyUrl(url: string | undefined) {
-  if (!url) return false
-  try {
-    const host = new URL(url).hostname
-    return (
-      host === 'mycustomname.whereby.com' || host === 'subdomain.whereby.com'
-    )
-  } catch {
-    return false
-  }
-}
+const WHEREBY_IFRAME_ALLOW =
+  'camera; microphone; fullscreen; speaker; display-capture; autoplay; compute-pressure'
 
-export default function LivePage() {
-  const wherebyUrl = process.env.NEXT_PUBLIC_WHEREBY_URL
-  const isPlaceholder = isPlaceholderWherebyUrl(wherebyUrl)
+const ZOOM_IFRAME_ALLOW = 'camera; microphone; fullscreen; speaker; display-capture; autoplay'
+
+export default async function LivePage() {
+  const settings = await readLiveRoomSettings()
+  const envWherebyUrl = process.env.NEXT_PUBLIC_WHEREBY_URL
+  const embed = resolveLiveEmbed(settings, envWherebyUrl)
+  const placeholderEnv = isPlaceholderWherebyUrl(envWherebyUrl)
+  const activeLabel = LIVE_ROOM_PROVIDER_LABELS[settings.provider]
 
   return (
     <div className="flex flex-col gap-8">
@@ -81,16 +83,21 @@ export default function LivePage() {
           </h1>
           <p className="text-sm text-ink-muted sm:text-base">
             The room is open. Join with your camera and mic, or just watch.
+            {embed && (
+              <span className="mt-1 block text-xs text-ink-subtle">
+                Powered by {LIVE_ROOM_PROVIDER_LABELS[embed.provider]}
+              </span>
+            )}
           </p>
         </div>
       </header>
 
       <div className="h-[75svh] w-full overflow-hidden rounded-2xl border border-line bg-zinc-950 shadow-sm sm:h-[85vh]">
-        {wherebyUrl && !isPlaceholder ? (
+        {embed ? (
           <iframe
-            src={wherebyUrl}
+            src={embed.src}
             title="Live training room"
-            allow="camera; microphone; fullscreen; speaker; display-capture; autoplay; compute-pressure"
+            allow={embed.provider === 'zoom' ? ZOOM_IFRAME_ALLOW : WHEREBY_IFRAME_ALLOW}
             width="100%"
             height="100%"
             className="block border-0"
@@ -99,22 +106,26 @@ export default function LivePage() {
           <div className="flex size-full flex-col items-center justify-center gap-3 px-6 text-center">
             <VideoOff className="size-8 text-zinc-500" aria-hidden="true" />
             <p className="font-medium text-zinc-100">Live room not configured</p>
-            <p className="max-w-sm text-sm text-zinc-400">
-              {isPlaceholder ? (
+            <p className="max-w-md text-sm text-zinc-400">
+              {settings.provider === 'zoom' ? (
+                <>
+                  {activeLabel} is selected but no embed URL is set yet. Admins can add one under{' '}
+                  <span className="text-zinc-200">Manage Files → Live room</span>.
+                </>
+              ) : placeholderEnv ? (
                 <>
                   The URL in{' '}
-                  <code className="text-zinc-200">NEXT_PUBLIC_WHEREBY_URL</code>{' '}
-                  is still Whereby&apos;s example room. Paste your real room
-                  link (from Whereby, like{' '}
-                  <code className="text-zinc-200">
-                    https://yourname.whereby.com/room-name
-                  </code>
-                  ) and restart the server.
+                  <code className="text-zinc-200">NEXT_PUBLIC_WHEREBY_URL</code> is still
+                  Whereby&apos;s example room. Add your real room in{' '}
+                  <span className="text-zinc-200">Manage Files → Live room</span>, or update the
+                  env variable and restart the server.
                 </>
               ) : (
                 <>
-                  Set <code className="text-zinc-200">NEXT_PUBLIC_WHEREBY_URL</code>{' '}
-                  to your Whereby room URL and restart the server.
+                  Add a Whereby or Zoom embed URL under{' '}
+                  <span className="text-zinc-200">Manage Files → Live room</span>, or set{' '}
+                  <code className="text-zinc-200">NEXT_PUBLIC_WHEREBY_URL</code> for a temporary
+                  Whereby fallback.
                 </>
               )}
             </p>
@@ -155,8 +166,7 @@ export default function LivePage() {
 
         <p className="flex items-center gap-2 text-sm text-ink-subtle">
           <Globe className="size-4 shrink-0" aria-hidden="true" />
-          All times are Pacific Time. Calendar invites adjust to your local time
-          zone automatically.
+          All times are Pacific Time. Calendar invites adjust to your local time zone automatically.
         </p>
       </section>
     </div>
