@@ -20,7 +20,7 @@ import {
   type LibraryFile,
 } from '@/lib/libraryTypes'
 import DocumentCoverControls, { uploadCoverFromPdfFile } from './DocumentCoverControls'
-import { deleteFile, moveFile, replaceFile, updateFile } from './actions'
+import { addFileToCategory, deleteFile, moveFile, replaceFile, updateFile } from './actions'
 import { dndId } from './model'
 import {
   ErrorText,
@@ -75,7 +75,7 @@ export default function FileRow({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: dndId('file', file.name) })
+  } = useSortable({ id: dndId('file', file.placementId) })
 
   const replacing = replaceProgress !== null
   const dirty = title !== file.customTitle || description !== file.customDescription
@@ -159,6 +159,11 @@ export default function FileRow({
             <span className="truncate" title={file.name}>
               {file.name}
             </span>
+            {file.placementCount > 1 && (
+              <span className="rounded-full bg-violet-100 px-2 py-0.5 font-medium text-violet-700">
+                In {file.placementCount} categories
+              </span>
+            )}
             <a
               href={file.cdnUrl}
               target="_blank"
@@ -226,12 +231,36 @@ export default function FileRow({
         <div className="flex shrink-0 flex-wrap items-center gap-1 lg:flex-col lg:items-end">
           <select
             value={file.sectionId ?? ''}
-            onChange={(e) => run(() => moveFile(library, file.name, e.target.value || null))}
+            onChange={(e) =>
+              run(() => moveFile(library, file.placementId, e.target.value || null))
+            }
             disabled={busy}
             aria-label="Move to"
             className={`${selectClass} max-w-56`}
           >
             <option value="">Other</option>
+            {groups.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.label}
+              </option>
+            ))}
+          </select>
+          <select
+            value=""
+            onChange={(e) => {
+              const value = e.target.value
+              if (!value) return
+              run(() =>
+                addFileToCategory(library, file.placementId, value === 'other' ? null : value),
+              )
+            }}
+            disabled={busy}
+            aria-label="Also add to category"
+            className={`${selectClass} max-w-56`}
+            title="Add a copy in another category without re-uploading"
+          >
+            <option value="">Also add to…</option>
+            <option value="other">Other</option>
             {groups.map((g) => (
               <option key={g.id} value={g.id}>
                 {g.label}
@@ -270,12 +299,12 @@ export default function FileRow({
               <span className="flex items-center gap-1">
                 <button
                   type="button"
-                  onClick={() => run(() => deleteFile(library, file.name))}
+                  onClick={() => run(() => deleteFile(library, file.placementId))}
                   disabled={busy}
                   className={dangerButtonClass}
                 >
                   {pending && <Loader2 className="size-3 animate-spin" aria-hidden="true" />}
-                  Delete file
+                  {file.placementCount > 1 ? 'Remove from category' : 'Delete file'}
                 </button>
                 <button type="button" onClick={() => setConfirmDelete(false)} className={ghostButtonClass}>
                   Cancel

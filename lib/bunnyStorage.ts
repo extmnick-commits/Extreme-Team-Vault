@@ -5,6 +5,13 @@ import {
   isDocumentCoverObjectName,
 } from './documentCovers'
 import { isPdfLibrary, type Library, type LibraryFile, type LibraryGroup, type LibraryView } from './libraryTypes'
+import {
+  normalizeEntry,
+  nextPlacementOrder,
+  serializeEntry,
+  type ManifestPlacement,
+  type NormalizedManifestEntry,
+} from './manifestPlacements'
 
 export type BunnyStorageObject = {
   Guid: string
@@ -35,10 +42,12 @@ export type ManifestSection = {
 export type ManifestEntry = {
   title?: string
   description?: string
-  sectionId: string | null
-  order: number
+  /** Legacy single placement; normalized to `placements` on read. */
+  sectionId?: string | null
+  order?: number
   /** Bunny object name under _covers/ for PDF preview image. */
   thumbnailName?: string
+  placements?: ManifestPlacement[]
 }
 
 export type LibraryManifest = {
@@ -278,18 +287,8 @@ function parseManifest(value: unknown): LibraryManifest {
   if (typeof raw.files === 'object' && raw.files !== null) {
     for (const [name, entry] of Object.entries(raw.files)) {
       if (typeof entry !== 'object' || entry === null) continue
-      const thumbnailName =
-        typeof entry.thumbnailName === 'string' && isDocumentCoverObjectName(entry.thumbnailName)
-          ? entry.thumbnailName
-          : undefined
-      files[name] = {
-        title: typeof entry.title === 'string' ? entry.title : undefined,
-        description:
-          typeof entry.description === 'string' ? entry.description : undefined,
-        sectionId: typeof entry.sectionId === 'string' ? entry.sectionId : null,
-        order: typeof entry.order === 'number' ? entry.order : 0,
-        thumbnailName,
-      }
+      const normalized = normalizeEntry(entry, name)
+      files[name] = serializeEntry(normalized)
     }
   }
 
@@ -330,10 +329,7 @@ export async function writeManifest(
 }
 
 export function nextOrder(manifest: LibraryManifest, sectionId: string | null): number {
-  const orders = Object.values(manifest.files)
-    .filter((entry) => entry.sectionId === sectionId)
-    .map((entry) => entry.order)
-  return orders.length === 0 ? 0 : Math.max(...orders) + 1
+  return nextPlacementOrder(manifest, sectionId)
 }
 
 // ---------------------------------------------------------------------------
@@ -412,19 +408,24 @@ function getFileType(name: string, library: Library): string {
 function toLibraryFile(
   item: BunnyStorageObject,
   library: Library,
-  entry: ManifestEntry | undefined,
+  entry: NormalizedManifestEntry,
+  placement: ManifestPlacement,
   validSectionIds: Set<string>,
   cdnUrl: string,
 ): LibraryFile {
-  const customTitle = entry?.title?.trim() ?? ''
-  const customDescription = entry?.description?.trim() ?? ''
+  const customTitle = entry.title?.trim() ?? ''
+  const customDescription = entry.description?.trim() ?? ''
   const sectionId =
-    entry?.sectionId && validSectionIds.has(entry.sectionId) ? entry.sectionId : null
+    placement.sectionId && validSectionIds.has(placement.sectionId)
+      ? placement.sectionId
+      : null
 
-  const thumbnailName = entry?.thumbnailName
+  const thumbnailName = entry.thumbnailName
   return {
     id: item.Guid,
     name: item.ObjectName,
+    placementId: placement.id,
+    placementCount: entry.placements.length,
     title: customTitle || formatTitle(item.ObjectName),
     description: customDescription || `Uploaded on ${formatDate(item.DateCreated)}`,
     fileType: getFileType(item.ObjectName, library),
@@ -452,27 +453,28 @@ export async function getLibrary(
     ])
 
     const validSectionIds = new Set(manifest.sections.map((s) => s.id))
-    const files = objects.map((item) => ({
-      item,
-      entry: manifest.files[item.ObjectName],
-      file: toLibraryFile(
-        item,
-        library,
-        manifest.files[item.ObjectName],
-        validSectionIds,
-        cdnUrl,
-      ),
-    }))
+    const files = objects.flatMap((item) => {
+      const rawEntry = manifest.files[item.ObjectName]
+      const entry = normalizeEntry(rawEntry, item.ObjectName)
+      const placements =
+        rawEntry !== undefined
+          ? entry.placements
+          : [{ id: item.ObjectName, sectionId: null as string | null, order: 0 }]
 
-    // Files with a manifest entry follow their saved order; files never
-    // organized by an admin come after, newest first.
+      return placements.map((placement) => ({
+        item,
+        placement,
+        file: toLibraryFile(item, library, entry, placement, validSectionIds, cdnUrl),
+      }))
+    })
+
     const byOrder = (a: (typeof files)[number], b: (typeof files)[number]) => {
-      const aOrdered = a.entry && a.file.sectionId === a.entry.sectionId
-      const bOrdered = b.entry && b.file.sectionId === b.entry.sectionId
-      if (aOrdered && bOrdered) return a.entry!.order - b.entry!.order
-      if (aOrdered) return -1
-      if (bOrdered) return 1
-      return b.item.DateCreated.localeCompare(a.item.DateCreated)
+      const aHasManifest = manifest.files[a.item.ObjectName] !== undefined
+      const bHasManifest = manifest.files[b.item.ObjectName] !== undefined
+      if (aHasManifest && bHasManifest) return a.placement.order - b.placement.order
+      if (aHasManifest) return -1
+      if (bHasManifest) return 1
+      return a.item.DateCreated.localeCompare(b.item.DateCreated)
     }
 
     const toGroup = (section: ManifestSection): LibraryGroup => ({

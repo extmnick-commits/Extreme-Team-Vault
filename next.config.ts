@@ -26,6 +26,12 @@ function bunnyStreamImagePatterns(): NonNullable<NextConfig['images']>['remotePa
 }
 
 const nextConfig: NextConfig = {
+  transpilePackages: ['@zoom/meetingsdk'],
+  turbopack: {
+    resolveAlias: {
+      '@zoom/download-manager': './lib/zoom/downloadManagerStub.ts',
+    },
+  },
   images: {
     remotePatterns: bunnyStreamImagePatterns(),
   },

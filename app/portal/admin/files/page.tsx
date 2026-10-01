@@ -17,6 +17,7 @@ import VideoAdminPanels from './VideoAdminPanels'
 import VideoManager from './VideoManager'
 import { readLiveRoomSettings } from '@/lib/liveRoomStore'
 import { isUsableWherebyUrl } from '@/lib/liveRoomConfig'
+import { isZoomMeetingSdkConfigured } from '@/lib/zoomMeetingSdkAuth'
 
 export const metadata: Metadata = {
   title: 'Manage Files | Extreme Team Vault',
@@ -105,6 +106,7 @@ export default async function AdminFilesPage({
         <LiveRoomSettingsPanel
           settings={liveRoomSettings}
           envWherebyConfigured={isUsableWherebyUrl(envWherebyUrl)}
+          zoomSdkConfigured={isZoomMeetingSdkConfigured()}
         />
       ) : isVideos && videosView ? (
         <>

@@ -34,6 +34,8 @@ export async function updateLiveRoomSettings(input: {
   provider: LiveRoomProvider
   wherebyUrl: string
   zoomEmbedUrl: string
+  zoomMeetingNumber: string
+  zoomPasscode: string
 }): Promise<ActionResult> {
   try {
     await requireAdmin()
@@ -41,6 +43,8 @@ export async function updateLiveRoomSettings(input: {
       provider: parseProvider(input.provider),
       wherebyUrl: cleanUrl(input.wherebyUrl),
       zoomEmbedUrl: cleanUrl(input.zoomEmbedUrl),
+      zoomMeetingNumber: cleanUrl(input.zoomMeetingNumber).replace(/\D/g, ''),
+      zoomPasscode: cleanUrl(input.zoomPasscode),
     }
     const validationError = validateLiveRoomSettings(settings, { envWherebyUrl: envWherebyUrl() })
     if (validationError) throw new ValidationError(validationError)

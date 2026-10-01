@@ -4,11 +4,18 @@ import type { VideoAttachmentEntry, VideoLinkedDocument } from './videoTypes'
 export type DocumentLookup = Map<string, LibraryFile>
 
 export function collectLibraryFiles(view: LibraryView): LibraryFile[] {
-  const files: LibraryFile[] = [...view.unsorted]
+  const seen = new Set<string>()
+  const files: LibraryFile[] = []
+  const add = (file: LibraryFile) => {
+    if (seen.has(file.name)) return
+    seen.add(file.name)
+    files.push(file)
+  }
+  for (const file of view.unsorted) add(file)
   for (const section of view.sections) {
-    files.push(...section.files)
+    for (const file of section.files) add(file)
     for (const child of section.children) {
-      files.push(...child.files)
+      for (const file of child.files) add(file)
     }
   }
   return files

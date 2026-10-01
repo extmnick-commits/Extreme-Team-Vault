@@ -13,12 +13,18 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@vercel/blob": "^2.8.0",
+    "@zoom/meetingsdk": "^6.5.0",
     "jose": "^6.2.12",
+    "jszip": "^3.10.2",
+    "lodash": "^4.18.1",
     "lucide-react": "^1.47.0",
     "next": "16.3.6",
     "pdfjs-dist": "^6.3.289",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "react-redux": "^9.3.0",
+    "redux": "^5.0.1",
+    "redux-thunk": "^3.1.0",
     "tus-js-client": "^4.3.1"
   },
   "devDependencies": {

@@ -2,6 +2,9 @@ import 'server-only'
 import { BunnyStorageError, putObject } from './bunnyStorage'
 import {
   DEFAULT_LIVE_ROOM_SETTINGS,
+  mergeZoomFieldsOnSave,
+  normalizeZoomMeetingNumber,
+  parseZoomMeetingLink,
   type LiveRoomProvider,
   type LiveRoomSettings,
 } from './liveRoomConfig'
@@ -15,11 +18,14 @@ type LiveRoomFile = {
   provider: LiveRoomProvider
   wherebyUrl: string
   zoomEmbedUrl: string
+  zoomMeetingNumber?: string
+  zoomPasscode?: string
 }
 
 type ReadOptions = { fresh?: boolean }
 
 const MAX_URL_LENGTH = 2048
+const MAX_PASSCODE_LENGTH = 128
 
 function emptyStore(): LiveRoomFile {
   return {
@@ -27,6 +33,8 @@ function emptyStore(): LiveRoomFile {
     provider: DEFAULT_LIVE_ROOM_SETTINGS.provider,
     wherebyUrl: '',
     zoomEmbedUrl: '',
+    zoomMeetingNumber: '',
+    zoomPasscode: '',
   }
 }
 
@@ -38,16 +46,37 @@ function cleanUrl(value: unknown): string {
   return typeof value === 'string' ? value.trim().slice(0, MAX_URL_LENGTH) : ''
 }
 
+function cleanPasscode(value: unknown): string {
+  return typeof value === 'string' ? value.trim().slice(0, MAX_PASSCODE_LENGTH) : ''
+}
+
 function parseStore(value: unknown): LiveRoomFile {
   if (typeof value !== 'object' || value === null) return emptyStore()
   const raw = value as Partial<LiveRoomFile>
   if (raw.version !== 1) return emptyStore()
-  return {
+
+  const file: LiveRoomFile = {
     version: 1,
     provider: parseProvider(raw.provider),
     wherebyUrl: cleanUrl(raw.wherebyUrl),
     zoomEmbedUrl: cleanUrl(raw.zoomEmbedUrl),
+    zoomMeetingNumber: normalizeZoomMeetingNumber(
+      typeof raw.zoomMeetingNumber === 'string' ? raw.zoomMeetingNumber : '',
+    ),
+    zoomPasscode: cleanPasscode(raw.zoomPasscode),
   }
+
+  if (!file.zoomMeetingNumber && file.zoomEmbedUrl) {
+    const parsed = parseZoomMeetingLink(file.zoomEmbedUrl)
+    if (parsed) {
+      file.zoomMeetingNumber = parsed.meetingNumber
+      if (!file.zoomPasscode && parsed.passcodeFromUrl) {
+        file.zoomPasscode = cleanPasscode(parsed.passcodeFromUrl)
+      }
+    }
+  }
+
+  return file
 }
 
 function toSettings(file: LiveRoomFile): LiveRoomSettings {
@@ -55,6 +84,8 @@ function toSettings(file: LiveRoomFile): LiveRoomSettings {
     provider: file.provider,
     wherebyUrl: file.wherebyUrl,
     zoomEmbedUrl: file.zoomEmbedUrl,
+    zoomMeetingNumber: file.zoomMeetingNumber ?? '',
+    zoomPasscode: file.zoomPasscode ?? '',
   }
 }
 
@@ -102,11 +133,14 @@ export async function readLiveRoomSettings(
 }
 
 export async function writeLiveRoomSettings(settings: LiveRoomSettings): Promise<void> {
+  const merged = mergeZoomFieldsOnSave(settings)
   const body: LiveRoomFile = {
     version: 1,
-    provider: settings.provider === 'zoom' ? 'zoom' : 'whereby',
-    wherebyUrl: settings.wherebyUrl.trim().slice(0, MAX_URL_LENGTH),
-    zoomEmbedUrl: settings.zoomEmbedUrl.trim().slice(0, MAX_URL_LENGTH),
+    provider: merged.provider === 'zoom' ? 'zoom' : 'whereby',
+    wherebyUrl: merged.wherebyUrl.trim().slice(0, MAX_URL_LENGTH),
+    zoomEmbedUrl: merged.zoomEmbedUrl.trim().slice(0, MAX_URL_LENGTH),
+    zoomMeetingNumber: merged.zoomMeetingNumber,
+    zoomPasscode: merged.zoomPasscode.slice(0, MAX_PASSCODE_LENGTH),
   }
   await putObject('documents', LIVE_ROOM_STORE_NAME, JSON.stringify(body, null, 2), {
     contentType: 'application/json',

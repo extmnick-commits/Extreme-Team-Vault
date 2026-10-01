@@ -92,7 +92,7 @@ export function FileList({ container, emptyText }: { container: string; emptyTex
           if (!file) return null
           return (
             <FileRow
-              key={`${file.name}:${file.customTitle}:${file.customDescription}:${file.sectionId}`}
+              key={`${file.placementId}:${file.customTitle}:${file.customDescription}:${file.sectionId}`}
               library={library}
               file={file}
               groups={groupOptions}

@@ -21,6 +21,11 @@ import {
   type LibraryManifest,
 } from '@/lib/bunnyStorage'
 import {
+  normalizeEntry,
+  resolvePlacement,
+  serializeEntry,
+} from '@/lib/manifestPlacements'
+import {
   documentCoverObjectName,
   isDocumentCoverObjectName,
 } from '@/lib/documentCovers'
@@ -111,6 +116,23 @@ function assertFileNames(names: unknown): asserts names is string[] {
     throw new ValidationError('Invalid file list.')
   }
   names.forEach(assertFileName)
+}
+
+function assertPlacementId(id: unknown): asserts id is string {
+  if (typeof id !== 'string' || id.length === 0 || id.includes('/') || id.includes('\\')) {
+    throw new ValidationError('Invalid file reference.')
+  }
+}
+
+function assertPlacementIds(ids: unknown): asserts ids is string[] {
+  if (!Array.isArray(ids) || ids.length > MAX_BULK_FILES) {
+    throw new ValidationError('Invalid file list.')
+  }
+  ids.forEach(assertPlacementId)
+}
+
+function writeEntry(manifest: LibraryManifest, objectName: string, entry: ReturnType<typeof normalizeEntry>) {
+  manifest.files[objectName] = serializeEntry(entry)
 }
 
 function cleanText(value: unknown, maxLength: number): string {
@@ -206,11 +228,16 @@ export async function finalizeUpload(input: {
     await updateManifest(library, (manifest) => {
       const sectionId = resolveSectionId(manifest, input.sectionId)
       const title = cleanText(input.title, MAX_TITLE_LENGTH)
-      manifest.files[name] = {
+      writeEntry(manifest, name, {
         title: title || undefined,
-        sectionId,
-        order: nextOrder(manifest, sectionId),
-      }
+        placements: [
+          {
+            id: name,
+            sectionId,
+            order: nextOrder(manifest, sectionId),
+          },
+        ],
+      })
     })
 
     revalidateLibraryPaths(library)
@@ -251,15 +278,16 @@ export async function replaceFile(input: {
     await deleteStoredCover(library, oldEntry?.thumbnailName)
 
     await updateManifest(library, (next) => {
-      const entry = next.files[oldName] ?? {
-        sectionId: null,
-        order: nextOrder(next, null),
-      }
+      const entry = normalizeEntry(next.files[oldName], oldName)
       const { thumbnailName: _removed, ...entryWithoutCover } = entry
-      next.files[newName] = {
+      const placements = entryWithoutCover.placements.map((p) =>
+        p.id === oldName ? { ...p, id: newName } : p,
+      )
+      writeEntry(next, newName, {
         ...entryWithoutCover,
+        placements,
         title: entry.title ?? formatTitle(oldName),
-      }
+      })
       delete next.files[oldName]
     })
 
@@ -285,44 +313,88 @@ export async function updateFile(
     await updateManifest(lib, (manifest) => {
       const title = cleanText(details.title, MAX_TITLE_LENGTH)
       const description = cleanText(details.description, MAX_DESCRIPTION_LENGTH)
-      const entry = manifest.files[name] ?? {
-        sectionId: null,
-        order: nextOrder(manifest, null),
-      }
-      manifest.files[name] = {
+      const entry = normalizeEntry(manifest.files[name], name)
+      writeEntry(manifest, name, {
         ...entry,
         title: title || undefined,
         description: description || undefined,
-      }
+      })
     })
   })
 }
 
 export async function moveFile(
   library: Library,
-  name: string,
+  placementId: string,
   sectionId: string | null,
 ): Promise<ActionResult> {
-  return bulkMoveFiles(library, [name], sectionId)
+  return bulkMoveFiles(library, [placementId], sectionId)
 }
 
 export async function bulkMoveFiles(
   library: Library,
-  names: string[],
+  placementIds: string[],
   sectionId: string | null,
 ): Promise<ActionResult> {
   return run(library, async (lib) => {
-    assertFileNames(names)
+    assertPlacementIds(placementIds)
     await updateManifest(lib, (manifest) => {
       const target = resolveSectionId(manifest, sectionId)
-      for (const name of names) {
-        const entry = manifest.files[name]
-        if (entry && entry.sectionId === target) continue
-        manifest.files[name] = {
-          ...entry,
+      for (const placementId of placementIds) {
+        const { objectName, entry, placement } = resolvePlacement(manifest, placementId)
+        if (placement.sectionId === target) continue
+        placement.sectionId = target
+        placement.order = nextOrder(manifest, target)
+        writeEntry(manifest, objectName, entry)
+      }
+    })
+  })
+}
+
+/** Adds another category placement for an existing uploaded file (no re-upload). */
+export async function addFileToCategory(
+  library: Library,
+  placementId: string,
+  sectionId: string | null,
+): Promise<ActionResult> {
+  return run(library, async (lib) => {
+    assertPlacementId(placementId)
+    await updateManifest(lib, (manifest) => {
+      const target = resolveSectionId(manifest, sectionId)
+      const { objectName, entry } = resolvePlacement(manifest, placementId)
+      if (entry.placements.some((p) => p.sectionId === target)) {
+        throw new ValidationError('This file is already in that category.')
+      }
+      entry.placements.push({
+        id: randomUUID().slice(0, 8),
+        sectionId: target,
+        order: nextOrder(manifest, target),
+      })
+      writeEntry(manifest, objectName, entry)
+    })
+  })
+}
+
+export async function bulkAddFilesToCategory(
+  library: Library,
+  placementIds: string[],
+  sectionId: string | null,
+): Promise<ActionResult> {
+  return run(library, async (lib) => {
+    assertPlacementIds(placementIds)
+    await updateManifest(lib, (manifest) => {
+      const target = resolveSectionId(manifest, sectionId)
+      for (const placementId of placementIds) {
+        const { objectName, entry } = resolvePlacement(manifest, placementId)
+        if (entry.placements.some((p) => p.sectionId === target)) {
+          throw new ValidationError('One or more files are already in that category.')
+        }
+        entry.placements.push({
+          id: randomUUID().slice(0, 8),
           sectionId: target,
           order: nextOrder(manifest, target),
-        }
+        })
+        writeEntry(manifest, objectName, entry)
       }
     })
   })
@@ -332,52 +404,65 @@ export async function bulkMoveFiles(
 export async function reorderFiles(
   library: Library,
   sectionId: string | null,
-  orderedNames: string[],
+  orderedPlacementIds: string[],
 ): Promise<ActionResult> {
   return run(library, async (lib) => {
-    assertFileNames(orderedNames)
+    assertPlacementIds(orderedPlacementIds)
     await updateManifest(lib, (manifest) => {
       const target = resolveSectionId(manifest, sectionId)
-      orderedNames.forEach((name, index) => {
-        manifest.files[name] = {
-          ...manifest.files[name],
-          sectionId: target,
-          order: index,
-        }
+      orderedPlacementIds.forEach((placementId, index) => {
+        const { objectName, entry, placement } = resolvePlacement(manifest, placementId)
+        placement.sectionId = target
+        placement.order = index
+        writeEntry(manifest, objectName, entry)
       })
     })
   })
 }
 
-export async function deleteFile(library: Library, name: string): Promise<ActionResult> {
-  return bulkDeleteFiles(library, [name])
+export async function deleteFile(library: Library, placementId: string): Promise<ActionResult> {
+  return bulkDeleteFiles(library, [placementId])
 }
 
-export async function bulkDeleteFiles(library: Library, names: string[]): Promise<ActionResult> {
+export async function bulkDeleteFiles(
+  library: Library,
+  placementIds: string[],
+): Promise<ActionResult> {
   return run(library, async (lib) => {
-    assertFileNames(names)
+    assertPlacementIds(placementIds)
     const manifest = await readManifest(lib, { fresh: true })
-    await Promise.all(
-      names.map((name) => deleteStoredCover(lib, manifest.files[name]?.thumbnailName)),
-    )
-
-    const results = await Promise.allSettled(names.map((name) => deleteObject(lib, name)))
-    const deleted = names.filter((_, i) => results[i].status === 'fulfilled')
+    const objectsToDelete = new Set<string>()
 
     await updateManifest(lib, (next) => {
-      for (const name of deleted) delete next.files[name]
+      for (const placementId of placementIds) {
+        const { objectName, entry } = resolvePlacement(next, placementId)
+        entry.placements = entry.placements.filter((p) => p.id !== placementId)
+        if (entry.placements.length === 0) {
+          delete next.files[objectName]
+          objectsToDelete.add(objectName)
+        } else {
+          writeEntry(next, objectName, entry)
+        }
+      }
     })
 
-    if (lib === 'documents' && deleted.length > 0) {
-      await Promise.all(deleted.map((name) => removeDocumentFromAllVideos(name)))
+    const toDelete = [...objectsToDelete]
+    await Promise.all(
+      toDelete.map((name) => deleteStoredCover(lib, manifest.files[name]?.thumbnailName)),
+    )
+
+    const results = await Promise.allSettled(toDelete.map((name) => deleteObject(lib, name)))
+
+    if (lib === 'documents' && toDelete.length > 0) {
+      await Promise.all(toDelete.map((name) => removeDocumentFromAllVideos(name)))
       updateTag(VIDEO_RESOURCES_TAG)
       revalidatePath('/portal/videos')
       revalidatePath('/portal/archive')
     }
 
-    const failed = names.length - deleted.length
+    const failed = toDelete.filter((_, i) => results[i].status === 'rejected').length
     if (failed > 0) {
-      throw new Error(`${failed} of ${names.length} files could not be deleted.`)
+      throw new Error(`${failed} of ${toDelete.length} files could not be deleted from storage.`)
     }
   })
 }
@@ -511,11 +596,8 @@ export async function uploadDocumentCover(formData: FormData): Promise<ActionRes
     })
 
     await updateManifest(library, (next) => {
-      const entry = next.files[pdfName] ?? {
-        sectionId: null,
-        order: nextOrder(next, null),
-      }
-      next.files[pdfName] = { ...entry, thumbnailName: coverName }
+      const entry = normalizeEntry(next.files[pdfName], pdfName)
+      writeEntry(next, pdfName, { ...entry, thumbnailName: coverName })
     })
 
     revalidateLibraryPaths(library)
@@ -541,10 +623,10 @@ export async function removeDocumentCover(
 
     await deleteStoredCover(lib, thumbnailName)
     await updateManifest(lib, (next) => {
-      const entry = next.files[pdfName]
-      if (!entry) return
+      if (!next.files[pdfName]) return
+      const entry = normalizeEntry(next.files[pdfName], pdfName)
       const { thumbnailName: _removed, ...rest } = entry
-      next.files[pdfName] = rest
+      writeEntry(next, pdfName, rest)
     })
   })
 }
@@ -557,11 +639,17 @@ export async function deleteSection(library: Library, sectionId: string): Promis
         if (section.parentId === sectionId) section.parentId = null
       }
       let order = nextOrder(manifest, null)
-      for (const entry of Object.values(manifest.files)) {
-        if (entry.sectionId === sectionId) {
-          entry.sectionId = null
-          entry.order = order++
+      for (const [objectName, raw] of Object.entries(manifest.files)) {
+        const entry = normalizeEntry(raw, objectName)
+        let changed = false
+        for (const placement of entry.placements) {
+          if (placement.sectionId === sectionId) {
+            placement.sectionId = null
+            placement.order = order++
+            changed = true
+          }
         }
+        if (changed) writeEntry(manifest, objectName, entry)
       }
     })
   })

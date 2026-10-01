@@ -23,7 +23,7 @@ export default async function DocumentAlbumPage({ params }: Props) {
   const parent = album.parentId ? findGroup(view, album.parentId) : undefined
   const kindLabel = album.parentId ? GROUP_LABELS.documents.child : GROUP_LABELS.documents.parent
   const documents: ViewerDocument[] = album.files.map((file) => ({
-    id: file.id,
+    id: file.placementId,
     title: file.title,
     description: file.description,
     src: file.cdnUrl,

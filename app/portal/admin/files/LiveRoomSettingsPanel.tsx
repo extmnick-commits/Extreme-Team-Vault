@@ -21,14 +21,18 @@ const providerButtonClass = (active: boolean) =>
 export default function LiveRoomSettingsPanel({
   settings,
   envWherebyConfigured,
+  zoomSdkConfigured,
 }: {
   settings: LiveRoomSettings
   envWherebyConfigured: boolean
+  zoomSdkConfigured: boolean
 }) {
   const router = useRouter()
   const [provider, setProvider] = useState<LiveRoomProvider>(settings.provider)
   const [wherebyUrl, setWherebyUrl] = useState(settings.wherebyUrl)
   const [zoomEmbedUrl, setZoomEmbedUrl] = useState(settings.zoomEmbedUrl)
+  const [zoomMeetingNumber, setZoomMeetingNumber] = useState(settings.zoomMeetingNumber)
+  const [zoomPasscode, setZoomPasscode] = useState(settings.zoomPasscode)
   const [pending, setPending] = useState(false)
   const [togglePending, setTogglePending] = useState<LiveRoomProvider | null>(null)
   const [error, setError] = useState<string | undefined>()
@@ -36,7 +40,9 @@ export default function LiveRoomSettingsPanel({
   const dirty =
     provider !== settings.provider ||
     wherebyUrl !== settings.wherebyUrl ||
-    zoomEmbedUrl !== settings.zoomEmbedUrl
+    zoomEmbedUrl !== settings.zoomEmbedUrl ||
+    zoomMeetingNumber !== settings.zoomMeetingNumber ||
+    zoomPasscode !== settings.zoomPasscode
 
   async function handleProviderSwitch(next: LiveRoomProvider) {
     if (next === provider || togglePending) return
@@ -60,6 +66,8 @@ export default function LiveRoomSettingsPanel({
       provider,
       wherebyUrl,
       zoomEmbedUrl,
+      zoomMeetingNumber,
+      zoomPasscode,
     })
     setPending(false)
     if (!result.ok) {
@@ -139,20 +147,60 @@ export default function LiveRoomSettingsPanel({
         </label>
 
         <label className="flex flex-col gap-1.5 text-xs font-medium uppercase tracking-wide text-ink-muted">
-          Zoom embed URL
+          Zoom join link
           <input
             type="url"
             value={zoomEmbedUrl}
             onChange={(e) => setZoomEmbedUrl(e.target.value)}
             disabled={pending || Boolean(togglePending)}
-            placeholder="https://zoom.us/wc/join/123456789?pwd=…"
+            placeholder="https://zoom.us/j/123456789"
             className={inputClass}
             autoComplete="off"
           />
           <span className="normal-case font-normal text-ink-subtle">
-            From Zoom: meeting settings → embed, or use the web client join link (https://zoom.us/…).
+            Paste your normal Zoom invite link. The meeting loads inside the portal (not the Zoom
+            app) using Zoom&apos;s Meeting SDK.
           </span>
         </label>
+
+        <label className="flex flex-col gap-1.5 text-xs font-medium uppercase tracking-wide text-ink-muted">
+          Zoom meeting ID
+          <input
+            type="text"
+            inputMode="numeric"
+            value={zoomMeetingNumber}
+            onChange={(e) => setZoomMeetingNumber(e.target.value)}
+            disabled={pending || Boolean(togglePending)}
+            placeholder="Optional if the join link includes it"
+            className={inputClass}
+            autoComplete="off"
+          />
+        </label>
+
+        <label className="flex flex-col gap-1.5 text-xs font-medium uppercase tracking-wide text-ink-muted">
+          Zoom passcode
+          <input
+            type="text"
+            value={zoomPasscode}
+            onChange={(e) => setZoomPasscode(e.target.value)}
+            disabled={pending || Boolean(togglePending)}
+            placeholder="Meeting passcode if required"
+            className={inputClass}
+            autoComplete="off"
+          />
+          <span className="normal-case font-normal text-ink-subtle">
+            Use the plain passcode from the invite (not the long pwd token in the URL).
+          </span>
+        </label>
+
+        {!zoomSdkConfigured && (
+          <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            Add{' '}
+            <code className="text-amber-950">ZOOM_MEETING_SDK_CLIENT_ID</code> and{' '}
+            <code className="text-amber-950">ZOOM_MEETING_SDK_CLIENT_SECRET</code> to your server
+            env (Zoom Marketplace → Meeting SDK app) so members can join in-page.
+          </p>
+        )}
 
         <ErrorText error={error ?? null} />
 

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Loader2, Trash2, X } from 'lucide-react'
 import type { GroupOption, Library } from '@/lib/libraryTypes'
-import { bulkDeleteFiles, bulkMoveFiles } from './actions'
+import { bulkAddFilesToCategory, bulkDeleteFiles, bulkMoveFiles } from './actions'
 import { ErrorText, dangerButtonClass, ghostButtonClass, iconButtonClass, selectClass, useAction } from './ui'
 
 export default function BulkBar({
@@ -40,6 +40,28 @@ export default function BulkBar({
           className={selectClass}
         >
           <option value="">Move to…</option>
+          <option value="other">Other</option>
+          {groups.map((g) => (
+            <option key={g.id} value={g.id}>
+              {g.label}
+            </option>
+          ))}
+        </select>
+        <select
+          value=""
+          onChange={(e) => {
+            const value = e.target.value
+            if (!value) return
+            run(
+              () => bulkAddFilesToCategory(library, names, value === 'other' ? null : value),
+              onClear,
+            )
+          }}
+          disabled={pending}
+          aria-label="Also add selected files to category"
+          className={selectClass}
+        >
+          <option value="">Also add to…</option>
           <option value="other">Other</option>
           {groups.map((g) => (
             <option key={g.id} value={g.id}>

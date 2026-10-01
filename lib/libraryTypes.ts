@@ -46,8 +46,13 @@ export type BunnyFile = {
 }
 
 export type LibraryFile = BunnyFile & {
+  /** Bunny storage object name (shared when the file appears in multiple categories). */
   name: string
+  /** Unique row id for admin ordering, moves, and per-category removal. */
+  placementId: string
   sectionId: string | null
+  /** How many categories include this storage object. */
+  placementCount: number
   customTitle: string
   customDescription: string
 }

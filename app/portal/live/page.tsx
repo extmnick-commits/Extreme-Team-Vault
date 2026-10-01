@@ -6,6 +6,8 @@ import {
   resolveLiveEmbed,
 } from '@/lib/liveRoomConfig'
 import { readLiveRoomSettings } from '@/lib/liveRoomStore'
+import { isZoomMeetingSdkConfigured } from '@/lib/zoomMeetingSdkAuth'
+import LiveRoomEmbed from '../components/LiveRoomEmbed'
 
 export const metadata: Metadata = {
   title: 'Live Trainings & Opp Night | Extreme Team Vault',
@@ -55,15 +57,11 @@ function googleCalendarUrl(event: ScheduleEvent) {
   return `https://calendar.google.com/calendar/render?${params}`
 }
 
-const WHEREBY_IFRAME_ALLOW =
-  'camera; microphone; fullscreen; speaker; display-capture; autoplay; compute-pressure'
-
-const ZOOM_IFRAME_ALLOW = 'camera; microphone; fullscreen; speaker; display-capture; autoplay'
-
 export default async function LivePage() {
   const settings = await readLiveRoomSettings()
   const envWherebyUrl = process.env.NEXT_PUBLIC_WHEREBY_URL
   const embed = resolveLiveEmbed(settings, envWherebyUrl)
+  const zoomSdkConfigured = isZoomMeetingSdkConfigured()
   const placeholderEnv = isPlaceholderWherebyUrl(envWherebyUrl)
   const activeLabel = LIVE_ROOM_PROVIDER_LABELS[settings.provider]
 
@@ -94,14 +92,7 @@ export default async function LivePage() {
 
       <div className="h-[75svh] w-full overflow-hidden rounded-2xl border border-line bg-zinc-950 shadow-sm sm:h-[85vh]">
         {embed ? (
-          <iframe
-            src={embed.src}
-            title="Live training room"
-            allow={embed.provider === 'zoom' ? ZOOM_IFRAME_ALLOW : WHEREBY_IFRAME_ALLOW}
-            width="100%"
-            height="100%"
-            className="block border-0"
-          />
+          <LiveRoomEmbed embed={embed} zoomSdkConfigured={zoomSdkConfigured} />
         ) : (
           <div className="flex size-full flex-col items-center justify-center gap-3 px-6 text-center">
             <VideoOff className="size-8 text-zinc-500" aria-hidden="true" />

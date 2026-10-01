@@ -12,11 +12,13 @@ export type OrderModel = {
 
 export function modelFromView(view: LibraryView): OrderModel {
   const childIds: Record<string, string[]> = {}
-  const files: Record<string, string[]> = { [UNSORTED]: view.unsorted.map((f) => f.name) }
+  const files: Record<string, string[]> = {
+    [UNSORTED]: view.unsorted.map((f) => f.placementId),
+  }
   for (const section of view.sections) {
     childIds[section.id] = section.children.map((c) => c.id)
-    files[section.id] = section.files.map((f) => f.name)
-    for (const child of section.children) files[child.id] = child.files.map((f) => f.name)
+    files[section.id] = section.files.map((f) => f.placementId)
+    for (const child of section.children) files[child.id] = child.files.map((f) => f.placementId)
   }
   return { topIds: view.sections.map((s) => s.id), childIds, files }
 }
@@ -24,13 +26,13 @@ export function modelFromView(view: LibraryView): OrderModel {
 export function indexView(view: LibraryView) {
   const groups = new Map<string, LibraryGroup>()
   const files = new Map<string, LibraryFile>()
-  for (const file of view.unsorted) files.set(file.name, file)
+  for (const file of view.unsorted) files.set(file.placementId, file)
   for (const section of view.sections) {
     groups.set(section.id, section)
-    for (const file of section.files) files.set(file.name, file)
+    for (const file of section.files) files.set(file.placementId, file)
     for (const child of section.children) {
       groups.set(child.id, child)
-      for (const file of child.files) files.set(file.name, file)
+      for (const file of child.files) files.set(file.placementId, file)
     }
   }
   return { groups, files }
