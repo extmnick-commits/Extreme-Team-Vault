@@ -8,7 +8,12 @@ export type ViewerDocument = {
   id: string
   title: string
   description: string
+  /** CDN URL for in-browser preview (iframe / open in new tab). */
   src: string
+  /** Same-origin URL that forces a file download. */
+  downloadHref: string
+  /** Suggested save-as file name. */
+  fileName: string
   badge: string
   thumbnailUrl?: string
 }
@@ -69,7 +74,7 @@ function MobileDocumentList({ documents }: { documents: ViewerDocument[] }) {
               <ExternalLink className="size-4" aria-hidden="true" />
               Open
             </a>
-            <a href={doc.src} download className={primaryButton}>
+            <a href={doc.downloadHref} download={doc.fileName} className={primaryButton}>
               <Download className="size-4" aria-hidden="true" />
               Download
             </a>
@@ -204,7 +209,7 @@ function DesktopDocumentViewer({ documents }: { documents: ViewerDocument[] }) {
               <ExternalLink className="size-4" aria-hidden="true" />
               Open
             </a>
-            <a href={doc.src} download className={primaryButton}>
+            <a href={doc.downloadHref} download={doc.fileName} className={primaryButton}>
               <Download className="size-4" aria-hidden="true" />
               Download
             </a>

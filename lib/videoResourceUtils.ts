@@ -1,4 +1,5 @@
 import type { LibraryFile, LibraryView } from './libraryTypes'
+import { portalLibraryDownloadPath } from './portalDownload'
 import type { VideoAttachmentEntry, VideoLinkedDocument } from './videoTypes'
 
 export type DocumentLookup = Map<string, LibraryFile>
@@ -39,6 +40,8 @@ export function resolveLinkedDocuments(
       title: customLabel || file.title,
       description: file.description,
       cdnUrl: file.cdnUrl,
+      downloadHref: portalLibraryDownloadPath('documents', file.name),
+      fileName: file.name,
       badge: `${file.fileType} · ${file.fileSize}`,
       thumbnailUrl: file.thumbnailUrl,
     })

@@ -84,6 +84,8 @@ export type VideoLinkedDocument = {
   title: string
   description: string
   cdnUrl: string
+  downloadHref: string
+  fileName: string
   badge: string
   thumbnailUrl?: string
 }

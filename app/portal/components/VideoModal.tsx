@@ -152,7 +152,7 @@ function TrainingMaterialRow({ doc }: { doc: VideoLinkedDocument }) {
           <ExternalLink className="size-4" aria-hidden="true" />
           Open
         </a>
-        <a href={doc.cdnUrl} download className={primaryButton}>
+        <a href={doc.downloadHref} download={doc.fileName} className={primaryButton}>
           <Download className="size-4" aria-hidden="true" />
           Download
         </a>

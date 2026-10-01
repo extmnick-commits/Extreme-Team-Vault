@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation'
 import { ArrowLeft, FileText } from 'lucide-react'
 import { getLibrary } from '@/lib/bunnyStorage'
 import { GROUP_LABELS, findGroup } from '@/lib/libraryTypes'
+import { portalLibraryDownloadPath } from '@/lib/portalDownload'
 import DocumentViewer, { type ViewerDocument } from '../../components/DocumentViewer'
 
 type Props = { params: Promise<{ albumId: string }> }
@@ -27,6 +28,8 @@ export default async function DocumentAlbumPage({ params }: Props) {
     title: file.title,
     description: file.description,
     src: file.cdnUrl,
+    downloadHref: portalLibraryDownloadPath('documents', file.name),
+    fileName: file.name,
     badge: `${file.fileType} · ${file.fileSize}`,
     thumbnailUrl: file.thumbnailUrl,
   }))
