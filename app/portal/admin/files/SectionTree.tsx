@@ -29,6 +29,7 @@ import {
   type LibraryGroup,
 } from '@/lib/libraryTypes'
 import { createSection, deleteSection, moveSectionTo, updateSection } from './actions'
+import AudioAlbumCoverControls from './AudioAlbumCoverControls'
 import FileRow from './FileRow'
 import { UNSORTED, dndId, type OrderModel } from './model'
 import {
@@ -156,7 +157,8 @@ export function SectionCard({ id, parentId }: { id: string; parentId: string | n
   const [collapsed, setCollapsed] = useState(false)
   const [editing, setEditing] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const { pending, error, run } = useAction()
+  const [artHint, setArtHint] = useState<string | null>(null)
+  const { pending, error, run, setError } = useAction()
 
   const {
     attributes,
@@ -194,13 +196,21 @@ export function SectionCard({ id, parentId }: { id: string; parentId: string | n
         isDragging ? 'relative z-20 opacity-50' : ''
       }`}
     >
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-start gap-2">
+        {library === 'audio' && !editing && (
+          <AudioAlbumCoverControls
+            group={group}
+            disabled={busy}
+            onError={setError}
+            onHint={setArtHint}
+          />
+        )}
         <button
           type="button"
           ref={setActivatorNodeRef}
           {...attributes}
           {...listeners}
-          className="cursor-grab touch-none rounded p-0.5 text-ink-subtle hover:text-ink active:cursor-grabbing"
+          className="mt-1 cursor-grab touch-none rounded p-0.5 text-ink-subtle hover:text-ink active:cursor-grabbing"
           aria-label={`Drag ${group.name}`}
         >
           <GripVertical className="size-4" />
@@ -305,6 +315,11 @@ export function SectionCard({ id, parentId }: { id: string; parentId: string | n
       </div>
 
       <ErrorText error={error} />
+      {artHint && !error && (
+        <p className="text-xs text-amber-700" role="status">
+          {artHint}
+        </p>
+      )}
 
       {!collapsed && (
         <>

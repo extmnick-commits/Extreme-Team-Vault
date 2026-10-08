@@ -1,7 +1,8 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { ArrowLeft, Disc3 } from 'lucide-react'
+import { ArrowLeft } from 'lucide-react'
+import AlbumArtwork from '../../components/AlbumArtwork'
 import { getLibrary } from '@/lib/bunnyStorage'
 import { GROUP_LABELS, findGroup } from '@/lib/libraryTypes'
 import AlbumPlayer, { type AlbumTrack } from '../../components/AlbumPlayer'
@@ -22,12 +23,14 @@ export default async function AlbumPage({ params }: Props) {
 
   const parent = album.parentId ? findGroup(view, album.parentId) : undefined
   const kindLabel = album.parentId ? GROUP_LABELS.audio.child : GROUP_LABELS.audio.parent
+  const artworkUrl = album.coverUrl ?? album.artworkUrl
   const tracks: AlbumTrack[] = album.files.map((file) => ({
     id: file.id,
     title: file.title,
     description: file.description,
     src: file.cdnUrl,
     badge: `${file.fileType} · ${file.fileSize}`,
+    artworkUrl,
   }))
 
   return (
@@ -41,9 +44,12 @@ export default async function AlbumPage({ params }: Props) {
       </Link>
 
       <header className="flex items-center gap-4 sm:items-end sm:gap-6">
-        <div className="flex size-16 shrink-0 items-center justify-center rounded-2xl border border-line bg-linear-to-br from-violet-100 via-violet-50 to-fuchsia-50 shadow-sm sm:size-32">
-          <Disc3 className="size-7 text-violet-500 sm:size-14" strokeWidth={1.5} aria-hidden="true" />
-        </div>
+        <AlbumArtwork
+          src={artworkUrl}
+          alt={`${album.name} cover`}
+          className="size-16 shrink-0 sm:size-32"
+          loading="eager"
+        />
         <div className="flex min-w-0 flex-col gap-1 sm:gap-1.5">
           <span className="truncate text-xs font-semibold uppercase tracking-wider text-violet-600">
             {parent ? `${parent.name} · ${kindLabel}` : kindLabel}
@@ -59,7 +65,7 @@ export default async function AlbumPage({ params }: Props) {
       </header>
       {album.description && <p className="-mt-2 text-sm text-ink-muted sm:hidden">{album.description}</p>}
 
-      <AlbumPlayer albumName={album.name} tracks={tracks} />
+      <AlbumPlayer albumName={album.name} tracks={tracks} artworkUrl={artworkUrl} />
     </div>
   )
 }

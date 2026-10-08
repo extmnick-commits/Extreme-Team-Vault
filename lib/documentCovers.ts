@@ -17,6 +17,12 @@ export function documentCoverObjectName(pdfObjectName: string): string {
   return `${DOCUMENT_COVER_PREFIX}${hash}.webp`
 }
 
+/** Stable cover object name for an audio album (manifest section). */
+export function audioAlbumCoverObjectName(sectionId: string): string {
+  const hash = createHash('sha256').update(`album:${sectionId}`).digest('hex').slice(0, 32)
+  return `${DOCUMENT_COVER_PREFIX}album-${hash}.webp`
+}
+
 /** Slashes are path segments on Bunny Storage/CDN, not part of a single encoded name. */
 export function encodeBunnyObjectPath(name: string): string {
   return name

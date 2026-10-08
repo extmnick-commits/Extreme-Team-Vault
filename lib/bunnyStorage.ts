@@ -37,6 +37,8 @@ export type ManifestSection = {
   description?: string
   /** Only top-level sections may be parents, so the tree is at most two levels deep. */
   parentId: string | null
+  /** Bunny object name under _covers/ for audio album artwork. */
+  coverArtName?: string
 }
 
 export type ManifestEntry = {
@@ -257,6 +259,7 @@ function parseSections(value: unknown): ManifestSection[] {
       name: s.name as string,
       description: typeof s.description === 'string' ? s.description : undefined,
       parentId: typeof s.parentId === 'string' ? s.parentId : null,
+      coverArtName: typeof s.coverArtName === 'string' ? s.coverArtName : undefined,
     }))
 
   // v1 manifests have no parentId, so every section becomes a top-level category.
@@ -477,19 +480,27 @@ export async function getLibrary(
       return a.item.DateCreated.localeCompare(b.item.DateCreated)
     }
 
-    const toGroup = (section: ManifestSection): LibraryGroup => ({
-      id: section.id,
-      name: section.name,
-      description: section.description?.trim() ?? '',
-      parentId: section.parentId,
-      files: files
-        .filter((f) => f.file.sectionId === section.id)
-        .sort(byOrder)
-        .map((f) => f.file),
-      children: manifest.sections
-        .filter((child) => child.parentId === section.id)
-        .map(toGroup),
-    })
+    const sectionCoverUrl = (coverArtName: string | undefined) =>
+      coverArtName ? documentCoverCdnUrl(cdnUrl, library, coverArtName) : undefined
+
+    const toGroup = (section: ManifestSection): LibraryGroup => {
+      const coverUrl = library === 'audio' ? sectionCoverUrl(section.coverArtName) : undefined
+      return {
+        id: section.id,
+        name: section.name,
+        description: section.description?.trim() ?? '',
+        parentId: section.parentId,
+        files: files
+          .filter((f) => f.file.sectionId === section.id)
+          .sort(byOrder)
+          .map((f) => f.file),
+        children: manifest.sections
+          .filter((child) => child.parentId === section.id)
+          .map(toGroup),
+        coverUrl,
+        artworkUrl: coverUrl,
+      }
+    }
 
     const sections = manifest.sections.filter((s) => s.parentId === null).map(toGroup)
 

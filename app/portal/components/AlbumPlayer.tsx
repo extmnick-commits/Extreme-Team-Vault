@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Loader2, Pause, Play, SkipBack, SkipForward } from 'lucide-react'
+import AlbumArtwork from './AlbumArtwork'
 
 export type AlbumTrack = {
   id: string
@@ -9,6 +10,7 @@ export type AlbumTrack = {
   description: string
   src: string
   badge: string
+  artworkUrl?: string
 }
 
 function formatTime(seconds: number): string {
@@ -23,9 +25,11 @@ function formatTime(seconds: number): string {
 export default function AlbumPlayer({
   albumName,
   tracks,
+  artworkUrl,
 }: {
   albumName: string
   tracks: AlbumTrack[]
+  artworkUrl?: string
 }) {
   const audioRef = useRef<HTMLAudioElement>(null)
   const playOnLoad = useRef(false)
@@ -70,18 +74,34 @@ export default function AlbumPlayer({
     handlers.current = { prev: skipBack, next: () => goTo(index + 1) }
   })
 
+  const art = artworkUrl ?? track?.artworkUrl
+
   useEffect(() => {
     if (!('mediaSession' in navigator) || !track) return
-    navigator.mediaSession.metadata = new MediaMetadata({ title: track.title, album: albumName })
+    const artwork = art
+      ? [{ src: art, sizes: '512x512', type: 'image/jpeg' }]
+      : []
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: track.title,
+      album: albumName,
+      artwork,
+    })
     navigator.mediaSession.setActionHandler('previoustrack', () => handlers.current.prev())
     navigator.mediaSession.setActionHandler('nexttrack', () => handlers.current.next())
-  }, [track, albumName])
+  }, [track, albumName, art])
 
   if (!track) return null
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="sticky top-16 z-10 flex flex-col gap-3 rounded-2xl border border-line bg-surface/95 p-4 shadow-lg shadow-zinc-900/5 backdrop-blur md:top-4">
+      <div className="sticky top-16 z-10 flex flex-col gap-4 rounded-2xl border border-line bg-surface/95 p-4 shadow-lg shadow-zinc-900/5 backdrop-blur md:top-4 sm:flex-row sm:items-center">
+        <AlbumArtwork
+          src={art}
+          alt={`${albumName} artwork`}
+          className="mx-auto size-28 shrink-0 sm:mx-0 sm:size-32"
+          loading="eager"
+        />
+        <div className="flex min-w-0 flex-1 flex-col gap-3">
         <audio
           ref={audioRef}
           src={track.src}
@@ -165,6 +185,7 @@ export default function AlbumPlayer({
             className="h-1.5 flex-1 cursor-pointer accent-violet-600"
           />
           <span className="w-12">{formatTime(duration)}</span>
+        </div>
         </div>
       </div>
 

@@ -26,6 +26,7 @@ import {
   serializeEntry,
 } from '@/lib/manifestPlacements'
 import {
+  audioAlbumCoverObjectName,
   documentCoverObjectName,
   isDocumentCoverObjectName,
 } from '@/lib/documentCovers'
@@ -62,6 +63,9 @@ function revalidateLibraryPaths(library: Library) {
   }
   if (library === 'books') {
     revalidatePath('/portal/books', 'layout')
+  }
+  if (library === 'audio') {
+    revalidatePath('/portal/audio', 'layout')
   }
 }
 
@@ -611,6 +615,73 @@ export async function uploadDocumentCover(formData: FormData): Promise<ActionRes
   }
 }
 
+function assertSectionId(id: unknown): asserts id is string {
+  if (typeof id !== 'string' || !/^[a-zA-Z0-9-]{1,64}$/.test(id)) {
+    throw new ValidationError('Invalid section.')
+  }
+}
+
+export async function uploadAudioAlbumCover(formData: FormData): Promise<ActionResult> {
+  try {
+    await requireAdmin()
+    const sectionId = formData.get('sectionId')
+    assertSectionId(sectionId)
+    const file = formData.get('cover')
+    if (!(file instanceof File) || file.size === 0) {
+      throw new ValidationError('Choose a cover image.')
+    }
+    const validationError = validateThumbnailFile(file)
+    if (validationError) throw new ValidationError(validationError)
+
+    const manifest = await readManifest('audio', { fresh: true })
+    const section = manifest.sections.find((s) => s.id === sectionId)
+    if (!section) throw new ValidationError('Album not found.')
+
+    const coverName = audioAlbumCoverObjectName(sectionId)
+    const previous = section.coverArtName
+    if (previous && previous !== coverName) {
+      await deleteStoredCover('audio', previous)
+    }
+
+    const bytes = new Uint8Array(await file.arrayBuffer())
+    const contentType = contentTypeForThumbnail(file)
+    await putObject('audio', coverName, bytes, {
+      contentType: contentType === 'image/webp' ? 'image/webp' : contentType,
+    })
+
+    await updateManifest('audio', (next) => {
+      const target = next.sections.find((s) => s.id === sectionId)
+      if (!target) throw new ValidationError('Album not found.')
+      target.coverArtName = coverName
+    })
+
+    revalidateLibraryPaths('audio')
+    return { ok: true }
+  } catch (error) {
+    console.error('[admin/files]', error)
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : 'Could not upload album artwork.',
+    }
+  }
+}
+
+export async function removeAudioAlbumCover(sectionId: string): Promise<ActionResult> {
+  return run('audio', async (lib) => {
+    assertSectionId(sectionId)
+    const manifest = await readManifest(lib, { fresh: true })
+    const section = manifest.sections.find((s) => s.id === sectionId)
+    if (!section?.coverArtName) return
+
+    await deleteStoredCover(lib, section.coverArtName)
+    await updateManifest(lib, (next) => {
+      const target = next.sections.find((s) => s.id === sectionId)
+      if (!target) return
+      delete target.coverArtName
+    })
+  })
+}
+
 export async function removeDocumentCover(
   pdfName: string,
   library: PdfLibrary = 'documents',
@@ -633,6 +704,11 @@ export async function removeDocumentCover(
 
 export async function deleteSection(library: Library, sectionId: string): Promise<ActionResult> {
   return run(library, async (lib) => {
+    const manifest = await readManifest(lib, { fresh: true })
+    const removed = manifest.sections.find((s) => s.id === sectionId)
+    if (removed?.coverArtName) {
+      await deleteStoredCover(lib, removed.coverArtName)
+    }
     await updateManifest(lib, (manifest) => {
       manifest.sections = manifest.sections.filter((s) => s.id !== sectionId)
       for (const section of manifest.sections) {

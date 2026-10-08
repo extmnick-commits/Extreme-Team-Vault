@@ -11,17 +11,23 @@ export default function DocumentCoverPicker({
   disabled,
   onPick,
   onClear,
+  aspectClassName = 'aspect-[4/3]',
+  hint = 'Optional image',
 }: {
   preview?: string
   generating?: boolean
   disabled?: boolean
   onPick: (file: File) => void
   onClear: () => void
+  aspectClassName?: string
+  hint?: string
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
 
   return (
-    <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden rounded-lg border border-line bg-zinc-900 sm:w-28">
+    <div
+      className={`relative w-full shrink-0 overflow-hidden rounded-lg border border-line bg-zinc-900 sm:w-28 ${aspectClassName}`}
+    >
       {generating ? (
         <div className="flex size-full flex-col items-center justify-center gap-1 text-xs text-ink-muted">
           <Loader2 className="size-5 animate-spin text-violet-500" aria-hidden="true" />
@@ -49,7 +55,7 @@ export default function DocumentCoverPicker({
         >
           <ImagePlus className="size-5 text-violet-400" aria-hidden="true" />
           <span className="font-medium">Cover</span>
-          <span className="text-[10px] leading-tight text-ink-subtle">Optional image</span>
+          <span className="text-[10px] leading-tight text-ink-subtle">{hint}</span>
           <input
             ref={inputRef}
             type="file"

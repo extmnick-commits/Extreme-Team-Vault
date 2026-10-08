@@ -64,6 +64,10 @@ export type LibraryGroup = {
   parentId: string | null
   files: LibraryFile[]
   children: LibraryGroup[]
+  /** Custom album artwork (audio sections). */
+  coverUrl?: string
+  /** Alias for cover art in playback contexts. */
+  artworkUrl?: string
 }
 
 export type LibraryView = {
