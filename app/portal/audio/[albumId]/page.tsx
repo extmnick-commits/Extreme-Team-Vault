@@ -7,7 +7,12 @@ import { getLibrary } from '@/lib/bunnyStorage'
 import { GROUP_LABELS, findGroup } from '@/lib/libraryTypes'
 import AlbumPlayer, { type AlbumTrack } from '../../components/AlbumPlayer'
 
-type Props = { params: Promise<{ albumId: string }> }
+const OTHER_GROUP_ID = 'other'
+
+type Props = {
+  params: Promise<{ albumId: string }>
+  searchParams: Promise<{ track?: string; play?: string }>
+}
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { albumId } = await params
@@ -15,10 +20,22 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return { title: `${album?.name ?? 'Album'} | Extreme Team Vault` }
 }
 
-export default async function AlbumPage({ params }: Props) {
+export default async function AlbumPage({ params, searchParams }: Props) {
   const { albumId } = await params
+  const { track: trackId, play } = await searchParams
   const view = await getLibrary('audio')
-  const album = findGroup(view, albumId)
+  let album = findGroup(view, albumId)
+  if (!album && albumId === OTHER_GROUP_ID) {
+    if (view.unsorted.length === 0) notFound()
+    album = {
+      id: OTHER_GROUP_ID,
+      name: 'Other',
+      description: '',
+      parentId: null,
+      files: view.unsorted,
+      children: [],
+    }
+  }
   if (!album || album.files.length === 0) notFound()
 
   const parent = album.parentId ? findGroup(view, album.parentId) : undefined
@@ -31,6 +48,8 @@ export default async function AlbumPage({ params }: Props) {
     src: file.cdnUrl,
     badge: `${file.fileType} · ${file.fileSize}`,
     artworkUrl,
+    downloadUrl: file.cdnUrl,
+    fileName: file.name,
   }))
 
   return (
@@ -65,7 +84,13 @@ export default async function AlbumPage({ params }: Props) {
       </header>
       {album.description && <p className="-mt-2 text-sm text-ink-muted sm:hidden">{album.description}</p>}
 
-      <AlbumPlayer albumName={album.name} tracks={tracks} artworkUrl={artworkUrl} />
+      <AlbumPlayer
+        albumName={album.name}
+        tracks={tracks}
+        artworkUrl={artworkUrl}
+        initialTrackId={trackId}
+        autoPlay={play === '1'}
+      />
     </div>
   )
 }

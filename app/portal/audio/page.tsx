@@ -15,13 +15,23 @@ export const metadata: Metadata = {
 const TITLE = 'Audio Trainings'
 const DESCRIPTION = 'Listen to trainings on the go.'
 
-const toRow = (track: LibraryFile): MediaListRow => ({
+function playHref(groupId: string, track: LibraryFile): string {
+  const params = new URLSearchParams({
+    track: track.id,
+    play: '1',
+  })
+  return `/portal/audio/${groupId}?${params.toString()}`
+}
+
+const toRow = (groupId: string, track: LibraryFile): MediaListRow => ({
   id: track.id,
   title: track.title,
   description: track.description,
   badge: `${track.fileType} · ${track.fileSize}`,
-  href: track.cdnUrl,
-  actionLabel: 'Stream Audio',
+  href: playHref(groupId, track),
+  downloadHref: track.cdnUrl,
+  downloadName: track.name,
+  actionLabel: 'Play',
   actionIcon: Play,
 })
 
@@ -87,7 +97,7 @@ export default async function AudioPage() {
                     <PlayAllLink href={`/portal/audio/${category.id}`} />
                   </div>
                 </div>
-                <MediaList icon={Headphones} rows={category.files.map(toRow)} />
+                <MediaList icon={Headphones} rows={category.files.map((f) => toRow(category.id, f))} />
               </div>
             )}
           </section>
@@ -96,12 +106,15 @@ export default async function AudioPage() {
 
       {audio.unsorted.length > 0 && (
         <section className="flex flex-col gap-4">
-          {categories.length > 0 && (
-            <h2 className="border-b border-line pb-3 text-base font-semibold text-ink sm:text-lg">
-              Other
-            </h2>
-          )}
-          <MediaList icon={Headphones} rows={audio.unsorted.map(toRow)} />
+          <div className="flex items-center justify-between gap-3 border-b border-line pb-3">
+            {categories.length > 0 ? (
+              <h2 className="text-base font-semibold text-ink sm:text-lg">Other</h2>
+            ) : (
+              <span />
+            )}
+            <PlayAllLink href="/portal/audio/other" />
+          </div>
+          <MediaList icon={Headphones} rows={audio.unsorted.map((f) => toRow('other', f))} />
         </section>
       )}
     </div>

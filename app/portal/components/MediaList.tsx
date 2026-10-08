@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import type { LucideIcon } from 'lucide-react'
 import VideoThumbnailImage from './VideoThumbnailImage'
 
@@ -9,7 +10,10 @@ export type MediaListRow = {
   href: string
   actionLabel: string
   actionIcon: LucideIcon
-  download?: boolean
+  /** CDN or file URL for the download control. */
+  downloadHref?: string
+  /** Suggested filename when saving (optional). */
+  downloadName?: string
   thumbnailUrl?: string
 }
 
@@ -30,9 +34,16 @@ export default function MediaList({ rows, icon: RowIcon }: MediaListProps) {
           href,
           actionLabel,
           actionIcon: ActionIcon,
-          download,
+          downloadHref,
+          downloadName,
           thumbnailUrl,
-        }) => (
+        }) => {
+          const playClassName =
+            'inline-flex min-h-11 w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 text-sm font-semibold text-white shadow-sm shadow-violet-600/30 transition-colors hover:bg-violet-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500 sm:min-h-10 sm:w-auto'
+          const downloadClassName =
+            'inline-flex min-h-11 w-full shrink-0 items-center justify-center gap-2 rounded-xl border border-line bg-surface px-4 text-sm font-semibold text-ink transition-colors hover:bg-zinc-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500 sm:min-h-10 sm:w-auto'
+
+          return (
           <li
             key={id}
             className="flex flex-col gap-4 p-4 transition-colors hover:bg-zinc-50 sm:flex-row sm:items-center sm:gap-5 sm:p-5"
@@ -58,18 +69,36 @@ export default function MediaList({ rows, icon: RowIcon }: MediaListProps) {
               </div>
             </div>
 
-            <a
-              href={href}
-              target="_blank"
-              rel="noopener noreferrer"
-              download={download || undefined}
-              className="inline-flex min-h-11 w-full shrink-0 items-center justify-center gap-2 rounded-xl bg-violet-600 px-4 text-sm font-semibold text-white shadow-sm shadow-violet-600/30 transition-colors hover:bg-violet-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500 sm:min-h-10 sm:w-auto"
-            >
-              <ActionIcon className="size-4" aria-hidden="true" />
-              {actionLabel}
-            </a>
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+              {href.startsWith('/') ? (
+                <Link href={href} className={playClassName}>
+                  <ActionIcon className="size-4" aria-hidden="true" />
+                  {actionLabel}
+                </Link>
+              ) : (
+                <a
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={playClassName}
+                >
+                  <ActionIcon className="size-4" aria-hidden="true" />
+                  {actionLabel}
+                </a>
+              )}
+              {downloadHref && (
+                <a
+                  href={downloadHref}
+                  download={downloadName || true}
+                  className={downloadClassName}
+                >
+                  Download
+                </a>
+              )}
+            </div>
           </li>
-        ),
+          )
+        },
       )}
     </ul>
   )

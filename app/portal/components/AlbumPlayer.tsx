@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Loader2, Pause, Play, SkipBack, SkipForward } from 'lucide-react'
+import { Download, Loader2, Pause, Play, SkipBack, SkipForward } from 'lucide-react'
 import AlbumArtwork from './AlbumArtwork'
 
 export type AlbumTrack = {
@@ -11,6 +11,8 @@ export type AlbumTrack = {
   src: string
   badge: string
   artworkUrl?: string
+  downloadUrl?: string
+  fileName?: string
 }
 
 function formatTime(seconds: number): string {
@@ -26,14 +28,22 @@ export default function AlbumPlayer({
   albumName,
   tracks,
   artworkUrl,
+  initialTrackId,
+  autoPlay = false,
 }: {
   albumName: string
   tracks: AlbumTrack[]
   artworkUrl?: string
+  initialTrackId?: string
+  autoPlay?: boolean
 }) {
   const audioRef = useRef<HTMLAudioElement>(null)
-  const playOnLoad = useRef(false)
-  const [index, setIndex] = useState(0)
+  const playOnLoad = useRef(autoPlay)
+  const [index, setIndex] = useState(() => {
+    if (!initialTrackId) return 0
+    const found = tracks.findIndex((t) => t.id === initialTrackId)
+    return found >= 0 ? found : 0
+  })
   const [playing, setPlaying] = useState(false)
   const [loading, setLoading] = useState(false)
   const [time, setTime] = useState(0)
@@ -158,12 +168,23 @@ export default function AlbumPlayer({
           >
             <SkipForward className="size-5" />
           </button>
-          <div className="flex min-w-0 flex-col">
+          <div className="flex min-w-0 flex-1 flex-col">
             <span className="truncate font-semibold text-ink">{track.title}</span>
             <span className="text-xs text-ink-subtle">
               Track {index + 1} of {tracks.length}
             </span>
           </div>
+          {track.downloadUrl && (
+            <a
+              href={track.downloadUrl}
+              download={track.fileName || true}
+              className="inline-flex size-11 shrink-0 items-center justify-center rounded-full border border-line text-ink-muted transition hover:bg-zinc-100 hover:text-ink"
+              aria-label={`Download ${track.title}`}
+              title="Download"
+            >
+              <Download className="size-5" aria-hidden="true" />
+            </a>
+          )}
         </div>
 
         <div className="flex items-center gap-3 text-xs text-ink-subtle tabular-nums">
