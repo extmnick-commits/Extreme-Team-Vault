@@ -25,3 +25,65 @@ body {
   color: var(--foreground);
   font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
 }
+
+/* Phone player: stay 16:9, and shrink so the sheet header and title stay on screen.
+   Landscape phones are often wider than 640px, so short viewports use the same layout. */
+.portal-video-frame {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+}
+
+@media (max-width: 639px), (max-height: 520px) {
+  .portal-video-backdrop {
+    align-items: stretch;
+    padding: 0;
+  }
+
+  .portal-video-sheet {
+    height: 100dvh;
+    max-height: none;
+    overflow: hidden;
+    border-radius: 0;
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+
+  .portal-video-chrome {
+    display: flex;
+  }
+
+  .portal-video-close-desktop {
+    display: none;
+  }
+
+  .portal-video-details {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+  }
+
+  .portal-video-heading {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .portal-video-frame {
+    width: min(
+      100%,
+      max(
+        12rem,
+        calc((100dvh - 8.25rem - env(safe-area-inset-top, 0px)) * 16 / 9)
+      )
+    );
+    margin-inline: auto;
+  }
+}

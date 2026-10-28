@@ -16,14 +16,30 @@ type VideoModalProps = {
   onClose: () => void
 }
 
+const PLAYER_ALLOW =
+  'accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture; fullscreen; web-share'
+
+function playerEmbedSrc(libraryId: string, bunnyVideoId: string) {
+  const params = new URLSearchParams({
+    autoplay: 'true',
+    playsinline: 'true',
+    preload: 'true',
+    compactControls: 'true',
+    levelCap: 'true',
+  })
+  return `https://player.mediadelivery.net/embed/${libraryId}/${bunnyVideoId}?${params}`
+}
+
 export default function VideoModal({ video, onClose }: VideoModalProps) {
-  const closeButtonRef = useRef<HTMLButtonElement>(null)
+  const mobileCloseRef = useRef<HTMLButtonElement>(null)
+  const desktopCloseRef = useRef<HTMLButtonElement>(null)
   const [isPlaying, setIsPlaying] = useState(false)
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
-    closeButtonRef.current?.focus()
+    const compact = window.matchMedia('(max-width: 639px), (max-height: 520px)').matches
+    ;(compact ? mobileCloseRef : desktopCloseRef).current?.focus()
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose()
@@ -37,56 +53,75 @@ export default function VideoModal({ video, onClose }: VideoModalProps) {
   }, [onClose])
 
   const titleId = `video-modal-title-${video.id}`
-  const embedSrc = `https://player.mediadelivery.net/embed/${video.libraryId}/${video.bunnyVideoId}?autoplay=true`
+  const embedSrc = playerEmbedSrc(video.libraryId, video.bunnyVideoId)
   const materials = video.linkedDocuments ?? []
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-zinc-950/70 backdrop-blur-sm sm:items-center sm:p-8"
+      className="portal-video-backdrop fixed inset-0 z-50 flex items-stretch justify-center bg-zinc-950/70 backdrop-blur-sm sm:items-center sm:p-4 md:p-8"
       onClick={onClose}
     >
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="flex max-h-full w-full max-w-5xl flex-col overflow-y-auto bg-surface pb-[env(safe-area-inset-bottom)] shadow-2xl sm:max-h-[90vh] sm:rounded-2xl sm:pb-0"
+        className="portal-video-sheet flex h-dvh w-full max-w-5xl flex-col overflow-hidden bg-surface pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)] shadow-2xl sm:h-auto sm:max-h-[min(92dvh,960px)] sm:overflow-y-auto sm:rounded-2xl sm:pr-0 sm:pl-0"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="relative aspect-video w-full shrink-0 bg-black">
-          {isPlaying ? (
-            <iframe
-              src={embedSrc}
-              title={video.title}
-              allow="autoplay; fullscreen; picture-in-picture"
-              allowFullScreen
-              className="absolute inset-0 size-full border-0"
-            />
-          ) : (
-            <button
-              type="button"
-              onClick={() => setIsPlaying(true)}
-              className="group/player absolute inset-0 flex w-full items-center justify-center"
-              aria-label={`Play ${video.title}`}
-            >
-              <VideoPoster
-                video={video}
-                sizes="100vw"
-                priority
-                hidePlayOverlay
-                className="absolute inset-0 h-full"
-              />
-              <span className="absolute inset-0 flex items-center justify-center bg-black/20 transition group-hover/player:bg-black/30">
-                <span className="flex size-16 min-h-11 min-w-11 items-center justify-center rounded-full bg-white/95 text-violet-600 shadow-lg shadow-black/25 transition group-hover/player:scale-105">
-                  <Play className="size-7 translate-x-0.5 fill-current" aria-hidden="true" />
-                </span>
-              </span>
-            </button>
-          )}
+        <div className="portal-video-chrome flex shrink-0 items-center gap-2 border-b border-line bg-surface pt-[env(safe-area-inset-top)] pr-1 pl-3 sm:hidden">
+          <p aria-hidden="true" className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">
+            {video.title}
+          </p>
+          <button
+            ref={mobileCloseRef}
+            type="button"
+            onClick={onClose}
+            aria-label="Close video"
+            className="flex size-11 shrink-0 touch-manipulation items-center justify-center rounded-xl text-ink-muted transition-colors hover:bg-zinc-100 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500"
+          >
+            <X className="size-5" aria-hidden="true" />
+          </button>
         </div>
 
+        <div className="flex w-full shrink-0 items-center justify-center bg-black">
+          <div className="portal-video-frame bg-black">
+            {isPlaying ? (
+              <iframe
+                src={embedSrc}
+                title={video.title}
+                allow={PLAYER_ALLOW}
+                allowFullScreen
+                referrerPolicy="strict-origin-when-cross-origin"
+                className="absolute inset-0 size-full border-0"
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIsPlaying(true)}
+                className="group/player absolute inset-0 flex w-full touch-manipulation items-center justify-center"
+                aria-label={`Play ${video.title}`}
+              >
+                <VideoPoster
+                  video={video}
+                  sizes="100vw"
+                  priority
+                  hidePlayOverlay
+                  className="!absolute inset-0 !aspect-auto !h-full !w-full"
+                />
+                <span className="absolute inset-0 flex items-center justify-center bg-black/20 transition group-hover/player:bg-black/30">
+                  <span className="flex size-16 min-h-11 min-w-11 items-center justify-center rounded-full bg-white/95 text-violet-600 shadow-lg shadow-black/25 transition group-hover/player:scale-105">
+                    <Play className="size-7 translate-x-0.5 fill-current" aria-hidden="true" />
+                  </span>
+                </span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="portal-video-details flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain pb-[max(1rem,env(safe-area-inset-bottom))] sm:flex-none sm:overflow-visible sm:pb-0">
         <div className="flex items-start justify-between gap-4 p-4 sm:p-6">
           <div className="flex min-w-0 flex-col gap-1.5">
-            <h2 id={titleId} className="text-lg font-semibold text-ink sm:text-xl">
+            <h2 id={titleId} className="portal-video-heading text-lg font-semibold text-ink max-sm:sr-only sm:text-xl">
               {video.title}
             </h2>
             <p className="text-sm text-ink-muted sm:text-base">{video.description}</p>
@@ -96,18 +131,18 @@ export default function VideoModal({ video, onClose }: VideoModalProps) {
             </span>
           </div>
           <button
-            ref={closeButtonRef}
+            ref={desktopCloseRef}
             type="button"
             onClick={onClose}
             aria-label="Close video"
-            className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-line text-ink-muted transition-colors hover:bg-zinc-100 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500"
+            className="portal-video-close-desktop hidden size-11 shrink-0 touch-manipulation items-center justify-center rounded-xl border border-line text-ink-muted transition-colors hover:bg-zinc-100 hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-500 sm:flex"
           >
             <X className="size-5" aria-hidden="true" />
           </button>
         </div>
 
         {materials.length > 0 && (
-          <section className="border-t border-line px-4 pb-4 sm:px-6 sm:pb-6">
+          <section className="border-t border-line px-4 pt-4 pb-4 sm:px-6 sm:pb-6">
             <h3 className="mb-3 text-sm font-semibold text-ink">Training materials</h3>
             <ul className="flex flex-col gap-3">
               {materials.map((doc) => (
@@ -116,6 +151,7 @@ export default function VideoModal({ video, onClose }: VideoModalProps) {
             </ul>
           </section>
         )}
+        </div>
       </div>
     </div>
   )
