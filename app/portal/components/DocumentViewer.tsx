@@ -1,15 +1,21 @@
 'use client'
 
-import { useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { ChevronLeft, ChevronRight, Download, ExternalLink, FileText } from 'lucide-react'
+import { bindHistoryFlush, queuePdfHistory } from '@/lib/client/historySync'
+import type { PdfLibrary } from '@/lib/libraryTypes'
+import PdfPageViewer from './PdfPageViewer'
 import VideoThumbnailImage from './VideoThumbnailImage'
 
 export type ViewerDocument = {
   id: string
+  documentId: string
   title: string
   description: string
   /** CDN URL for in-browser preview (iframe / open in new tab). */
   src: string
+  /** Same-origin URL used by the integrated PDF viewer. */
+  previewHref: string
   /** Same-origin URL that forces a file download. */
   downloadHref: string
   /** Suggested save-as file name. */
@@ -41,46 +47,130 @@ function useIsDesktop() {
   )
 }
 
-export default function DocumentViewer({ documents }: { documents: ViewerDocument[] }) {
+export default function DocumentViewer({
+  documents,
+  library,
+  albumId,
+  initialDocumentId,
+  initialPage,
+}: {
+  documents: ViewerDocument[]
+  library: PdfLibrary
+  albumId: string
+  initialDocumentId?: string
+  initialPage?: number
+}) {
   const isDesktop = useIsDesktop()
+  useEffect(() => bindHistoryFlush(), [])
   return (
     <>
-      <MobileDocumentList documents={documents} />
-      {isDesktop && <DesktopDocumentViewer documents={documents} />}
+      <MobileDocumentList
+        documents={documents}
+        library={library}
+        albumId={albumId}
+        initialDocumentId={initialDocumentId}
+        initialPage={initialPage}
+      />
+      {isDesktop && (
+        <DesktopDocumentViewer
+          documents={documents}
+          library={library}
+          albumId={albumId}
+          initialDocumentId={initialDocumentId}
+          initialPage={initialPage}
+        />
+      )}
     </>
   )
 }
 
-function MobileDocumentList({ documents }: { documents: ViewerDocument[] }) {
+function usePdfHistory(library: PdfLibrary, albumId: string) {
+  return useCallback(
+    (doc: ViewerDocument, page: number | null, immediate = false) => {
+      queuePdfHistory(
+        {
+          documentId: doc.documentId,
+          library,
+          albumId,
+          page,
+          lastOpenedAt: new Date().toISOString(),
+        },
+        immediate,
+      )
+    },
+    [albumId, library],
+  )
+}
+
+function MobileDocumentList({
+  documents,
+  library,
+  albumId,
+  initialDocumentId,
+  initialPage,
+}: {
+  documents: ViewerDocument[]
+  library: PdfLibrary
+  albumId: string
+  initialDocumentId?: string
+  initialPage?: number
+}) {
+  const requestedIndex = useMemo(() => {
+    if (!initialDocumentId) return -1
+    return documents.findIndex((doc) => doc.documentId === initialDocumentId)
+  }, [documents, initialDocumentId])
+  const [activeId, setActiveId] = useState<string | null>(
+    requestedIndex >= 0 ? documents[requestedIndex]?.id ?? null : null,
+  )
+  const persist = usePdfHistory(library, albumId)
+
   return (
     <ul className="flex flex-col gap-3 lg:hidden">
-      {documents.map((doc) => (
-        <li
-          key={doc.id}
-          className="flex flex-col gap-4 rounded-2xl border border-line bg-surface p-4 shadow-sm"
-        >
-          <div className="flex items-start gap-3">
-            <DocumentThumb thumbnailUrl={doc.thumbnailUrl} title={doc.title} />
-            <div className="flex min-w-0 flex-col gap-1">
-              <span className="font-semibold text-ink">{doc.title}</span>
-              <span className="text-xs text-ink-subtle tabular-nums">{doc.badge}</span>
-              {doc.description && (
-                <p className="line-clamp-2 text-sm text-ink-muted">{doc.description}</p>
-              )}
+      {documents.map((doc) => {
+        const open = activeId === doc.id
+        return (
+          <li
+            key={doc.id}
+            className="flex flex-col gap-4 rounded-2xl border border-line bg-surface p-4 shadow-sm"
+          >
+            <div className="flex items-start gap-3">
+              <DocumentThumb thumbnailUrl={doc.thumbnailUrl} title={doc.title} />
+              <div className="flex min-w-0 flex-col gap-1">
+                <span className="font-semibold text-ink">{doc.title}</span>
+                <span className="text-xs text-ink-subtle tabular-nums">{doc.badge}</span>
+                {doc.description && (
+                  <p className="line-clamp-2 text-sm text-ink-muted">{doc.description}</p>
+                )}
+              </div>
             </div>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <a href={doc.src} target="_blank" rel="noopener noreferrer" className={secondaryButton}>
-              <ExternalLink className="size-4" aria-hidden="true" />
-              Open
-            </a>
-            <a href={doc.downloadHref} download={doc.fileName} className={primaryButton}>
-              <Download className="size-4" aria-hidden="true" />
-              Download
-            </a>
-          </div>
-        </li>
-      ))}
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                className={secondaryButton}
+                onClick={() => {
+                  setActiveId(doc.id)
+                  persist(doc, initialDocumentId === doc.documentId ? initialPage ?? 1 : 1, true)
+                }}
+              >
+                <ExternalLink className="size-4" aria-hidden="true" />
+                {open ? 'Reading' : 'Open'}
+              </button>
+              <a href={doc.downloadHref} download={doc.fileName} className={primaryButton}>
+                <Download className="size-4" aria-hidden="true" />
+                Download
+              </a>
+            </div>
+            {open && (
+              <PdfPageViewer
+                src={doc.previewHref}
+                title={doc.title}
+                initialPage={initialDocumentId === doc.documentId ? initialPage : undefined}
+                onPageChange={(page) => persist(doc, page)}
+              />
+            )}
+          </li>
+        )
+      })}
     </ul>
   )
 }
@@ -103,7 +193,6 @@ function DocumentThumb({ thumbnailUrl, title }: { thumbnailUrl?: string; title: 
 
 function SidebarThumb({
   thumbnailUrl,
-  title,
   active,
 }: {
   thumbnailUrl?: string
@@ -129,13 +218,38 @@ function SidebarThumb({
   )
 }
 
-function DesktopDocumentViewer({ documents }: { documents: ViewerDocument[] }) {
-  const [index, setIndex] = useState(0)
+function DesktopDocumentViewer({
+  documents,
+  library,
+  albumId,
+  initialDocumentId,
+  initialPage,
+}: {
+  documents: ViewerDocument[]
+  library: PdfLibrary
+  albumId: string
+  initialDocumentId?: string
+  initialPage?: number
+}) {
+  const requestedIndex = useMemo(() => {
+    if (!initialDocumentId) return 0
+    const found = documents.findIndex((doc) => doc.documentId === initialDocumentId)
+    return found >= 0 ? found : 0
+  }, [documents, initialDocumentId])
+  const [index, setIndex] = useState(requestedIndex)
+  const persist = usePdfHistory(library, albumId)
+  const restoreInitialPage = Boolean(initialDocumentId)
   const doc = documents[index]
   if (!doc) return null
 
   const hasPrev = index > 0
   const hasNext = index < documents.length - 1
+
+  function select(next: number) {
+    const nextDoc = documents[next]
+    if (nextDoc) persist(nextDoc, 1, true)
+    setIndex(next)
+  }
 
   return (
     <div className="hidden gap-6 lg:grid lg:grid-cols-[18rem_minmax(0,1fr)]">
@@ -153,7 +267,7 @@ function DesktopDocumentViewer({ documents }: { documents: ViewerDocument[] }) {
               <li key={d.id}>
                 <button
                   type="button"
-                  onClick={() => setIndex(i)}
+                  onClick={() => select(i)}
                   aria-current={current ? 'true' : undefined}
                   className={`flex w-full items-start gap-3 rounded-xl border-l-[3px] px-3 py-2.5 text-left transition-colors ${
                     current
@@ -188,7 +302,7 @@ function DesktopDocumentViewer({ documents }: { documents: ViewerDocument[] }) {
           <div className="flex shrink-0 items-center gap-2">
             <button
               type="button"
-              onClick={() => setIndex(index - 1)}
+              onClick={() => select(index - 1)}
               disabled={!hasPrev}
               aria-label="Previous document"
               className={iconButton}
@@ -197,7 +311,7 @@ function DesktopDocumentViewer({ documents }: { documents: ViewerDocument[] }) {
             </button>
             <button
               type="button"
-              onClick={() => setIndex(index + 1)}
+              onClick={() => select(index + 1)}
               disabled={!hasNext}
               aria-label="Next document"
               className={iconButton}
@@ -219,11 +333,19 @@ function DesktopDocumentViewer({ documents }: { documents: ViewerDocument[] }) {
           <p className="border-b border-line px-5 py-3 text-sm text-ink-muted">{doc.description}</p>
         )}
         <div className="bg-zinc-100 p-4">
-          <iframe
+          <PdfPageViewer
             key={doc.id}
-            src={`${doc.src}#view=FitH`}
+            src={doc.previewHref}
             title={doc.title}
-            className="h-[78vh] w-full rounded-lg bg-white shadow-md ring-1 ring-zinc-200"
+            initialPage={
+              restoreInitialPage && initialDocumentId === doc.documentId
+                ? initialPage
+                : undefined
+            }
+            onPageChange={(page) => {
+              if (!restoreInitialPage && page <= 1 && index === requestedIndex) return
+              persist(doc, page)
+            }}
           />
         </div>
       </div>

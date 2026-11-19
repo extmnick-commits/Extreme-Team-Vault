@@ -15,7 +15,7 @@ export function isPdfLibrary(value: unknown): value is PdfLibrary {
 export const LIBRARY_LABELS: Record<Library, string> = {
   documents: 'PDF Documents',
   audio: 'Audio Trainings',
-  books: 'PDF Book',
+  books: 'PDF Books',
 }
 
 export const ALLOWED_CONTENT_TYPES: Record<Library, string[]> = {
@@ -43,6 +43,10 @@ export type BunnyFile = {
   cdnUrl: string
   /** JPG/PNG/WebP cover preview for PDFs. */
   thumbnailUrl?: string
+  /** ISO timestamp from Bunny DateCreated when available. */
+  dateCreated?: string
+  /** ISO timestamp from Bunny LastChanged when available. */
+  lastChanged?: string
 }
 
 export type LibraryFile = BunnyFile & {

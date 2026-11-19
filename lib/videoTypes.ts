@@ -102,6 +102,8 @@ export type VideoItem = {
   /** Bunny Stream thumbnail file name (e.g. thumbnail.jpg). Used for CDN fallback URLs. */
   thumbnailFileName?: string
   linkedDocuments?: VideoLinkedDocument[]
+  /** ISO timestamp from Bunny Stream dateUploaded when available. */
+  dateUploaded?: string
 }
 
 export const MAX_VIDEO_ATTACHMENT_LABEL_LENGTH = 120

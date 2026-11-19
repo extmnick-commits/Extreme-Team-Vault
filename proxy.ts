@@ -2,6 +2,14 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { jwtVerify } from 'jose'
 import { SESSION_COOKIE } from '@/app/lib/session'
+import {
+  MEMBER_COOKIE,
+  isMemberId,
+  memberCookieSetOptions,
+  newMemberId,
+  signMemberToken,
+  verifyMemberToken,
+} from '@/lib/memberCookie'
 
 // Encode the secret key inline — proxy runs in the edge-like Node runtime
 // and cannot import from 'server-only' modules.
@@ -11,7 +19,7 @@ function getEncodedKey(): Uint8Array {
   return new TextEncoder().encode(secret)
 }
 
-type VerifiedSession = { role: 'admin' | 'member' }
+type VerifiedSession = { role: 'admin' | 'member'; memberId: string | null }
 
 async function verifySession(
   token: string | undefined
@@ -21,7 +29,10 @@ async function verifySession(
     const { payload } = await jwtVerify(token, getEncodedKey(), {
       algorithms: ['HS256'],
     })
-    return { role: payload.role === 'admin' ? 'admin' : 'member' }
+    return {
+      role: payload.role === 'admin' ? 'admin' : 'member',
+      memberId: isMemberId(payload.memberId) ? payload.memberId : null,
+    }
   } catch {
     return null
   }
@@ -43,7 +54,19 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL('/portal', request.url))
   }
 
-  return NextResponse.next()
+  const response = NextResponse.next()
+  const cookieMemberId = await verifyMemberToken(
+    request.cookies.get(MEMBER_COOKIE)?.value,
+  )
+  const memberId = session.memberId ?? cookieMemberId ?? newMemberId()
+  if (memberId !== cookieMemberId) {
+    response.cookies.set(
+      MEMBER_COOKIE,
+      await signMemberToken(memberId),
+      memberCookieSetOptions(),
+    )
+  }
+  return response
 }
 
 // Only protect /portal and its sub-paths.

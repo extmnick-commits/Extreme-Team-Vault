@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
 import { Menu, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react'
 import LogoutButton from '@/app/ui/LogoutButton'
 import PulidoLogo from '@/app/ui/PulidoLogo'
-import { ADMIN_NAV_ITEMS, NAV_ITEMS, type NavItem } from './navItems'
+import { ADMIN_NAV_ITEMS, HOME_NAV_ITEM, NAV_ITEMS, type NavItem } from './navItems'
 
 function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(href + '/')
@@ -36,14 +36,26 @@ function NavLinks({
   pathname,
   isAdmin,
   collapsed = false,
+  onNavigate,
 }: {
   pathname: string
   isAdmin: boolean
   collapsed?: boolean
+  onNavigate?: () => void
 }) {
   return (
     <nav className="flex flex-col gap-1 px-3">
-      <NavLinkList items={NAV_ITEMS} pathname={pathname} collapsed={collapsed} />
+      {!collapsed && (
+        <span className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-subtle">
+          Your workspace
+        </span>
+      )}
+      <NavLinkList
+        items={[HOME_NAV_ITEM, ...NAV_ITEMS]}
+        pathname={pathname}
+        collapsed={collapsed}
+        onNavigate={onNavigate}
+      />
       {isAdmin && (
         <>
           <div className="my-3 border-t border-line" role="separator" />
@@ -56,6 +68,7 @@ function NavLinks({
             items={ADMIN_NAV_ITEMS}
             pathname={pathname}
             collapsed={collapsed}
+            onNavigate={onNavigate}
           />
         </>
       )}
@@ -67,10 +80,12 @@ function NavLinkList({
   items,
   pathname,
   collapsed,
+  onNavigate,
 }: {
   items: NavItem[]
   pathname: string
   collapsed: boolean
+  onNavigate?: () => void
 }) {
   return (
     <>
@@ -80,6 +95,7 @@ function NavLinkList({
           <Link
             key={href}
             href={href}
+            onClick={onNavigate}
             aria-current={active ? 'page' : undefined}
             title={collapsed ? label : undefined}
             className={`flex min-h-11 items-center gap-3 rounded-lg py-2.5 text-sm font-medium transition ${
@@ -109,12 +125,6 @@ export default function PortalSidebar({
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [lastPathname, setLastPathname] = useState(pathname)
-
-  if (pathname !== lastPathname) {
-    setLastPathname(pathname)
-    setMobileOpen(false)
-  }
 
   useEffect(() => {
     if (!mobileOpen) return
@@ -163,6 +173,13 @@ export default function PortalSidebar({
         <div className="flex flex-1 flex-col overflow-y-auto py-4">
           <NavLinks pathname={pathname} isAdmin={isAdmin} collapsed={collapsed} />
           <div className={`mt-auto px-3 pt-4 ${collapsed ? 'flex justify-center' : ''}`}>
+            {!collapsed && (
+              <p className="mb-3 px-3 text-xs leading-5 text-ink-subtle">
+                A little progress, every day.
+                <br />
+                Your team. Your next level.
+              </p>
+            )}
             <LogoutButton compact={collapsed} />
           </div>
         </div>
@@ -213,7 +230,11 @@ export default function PortalSidebar({
           </button>
         </div>
         <div className="flex flex-1 flex-col overflow-y-auto py-4">
-          <NavLinks pathname={pathname} isAdmin={isAdmin} />
+          <NavLinks
+            pathname={pathname}
+            isAdmin={isAdmin}
+            onNavigate={() => setMobileOpen(false)}
+          />
           <div className="mt-auto px-3 pt-4 pb-[env(safe-area-inset-bottom)]">
             <LogoutButton />
           </div>

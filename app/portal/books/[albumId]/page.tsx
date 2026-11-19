@@ -4,10 +4,16 @@ import { notFound } from 'next/navigation'
 import { ArrowLeft, BookOpen } from 'lucide-react'
 import { getLibrary } from '@/lib/bunnyStorage'
 import { GROUP_LABELS, findGroup } from '@/lib/libraryTypes'
-import { portalLibraryDownloadPath } from '@/lib/portalDownload'
+import {
+  portalLibraryDownloadPath,
+  portalLibraryPreviewPath,
+} from '@/lib/portalDownload'
 import DocumentViewer, { type ViewerDocument } from '../../components/DocumentViewer'
 
-type Props = { params: Promise<{ albumId: string }> }
+type Props = {
+  params: Promise<{ albumId: string }>
+  searchParams: Promise<{ doc?: string; page?: string }>
+}
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { albumId } = await params
@@ -15,8 +21,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return { title: `${album?.name ?? 'Books'} | Extreme Team Vault` }
 }
 
-export default async function BookAlbumPage({ params }: Props) {
+export default async function BookAlbumPage({ params, searchParams }: Props) {
   const { albumId } = await params
+  const { doc: initialDocumentId, page: pageRaw } = await searchParams
+  const initialPage = pageRaw ? Number.parseInt(pageRaw, 10) : undefined
   const view = await getLibrary('books')
   const album = findGroup(view, albumId)
   if (!album || album.files.length === 0) notFound()
@@ -25,9 +33,11 @@ export default async function BookAlbumPage({ params }: Props) {
   const kindLabel = album.parentId ? GROUP_LABELS.books.child : GROUP_LABELS.books.parent
   const documents: ViewerDocument[] = album.files.map((file) => ({
     id: file.placementId,
+    documentId: file.name,
     title: file.title,
     description: file.description,
     src: file.cdnUrl,
+    previewHref: portalLibraryPreviewPath('books', file.name),
     downloadHref: portalLibraryDownloadPath('books', file.name),
     fileName: file.name,
     badge: `${file.fileType} · ${file.fileSize}`,
@@ -63,7 +73,13 @@ export default async function BookAlbumPage({ params }: Props) {
       </header>
       {album.description && <p className="-mt-2 text-sm text-ink-muted sm:hidden">{album.description}</p>}
 
-      <DocumentViewer documents={documents} />
+      <DocumentViewer
+        documents={documents}
+        library="books"
+        albumId={albumId}
+        initialDocumentId={initialDocumentId}
+        initialPage={Number.isFinite(initialPage) ? initialPage : undefined}
+      />
     </div>
   )
 }

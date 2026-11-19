@@ -6,6 +6,7 @@ import AlbumArtwork from '../../components/AlbumArtwork'
 import { getLibrary } from '@/lib/bunnyStorage'
 import { GROUP_LABELS, findGroup } from '@/lib/libraryTypes'
 import AlbumPlayer, { type AlbumTrack } from '../../components/AlbumPlayer'
+import { getAudioProgressForAlbum } from '@/lib/vaultCatalog'
 
 const OTHER_GROUP_ID = 'other'
 
@@ -36,11 +37,18 @@ export default async function AlbumPage({ params, searchParams }: Props) {
       children: [],
     }
   }
+  if (album && album.files.length === 0 && album.children.length > 0) {
+    album = {
+      ...album,
+      files: album.children.flatMap((child) => child.files),
+    }
+  }
   if (!album || album.files.length === 0) notFound()
 
   const parent = album.parentId ? findGroup(view, album.parentId) : undefined
   const kindLabel = album.parentId ? GROUP_LABELS.audio.child : GROUP_LABELS.audio.parent
   const artworkUrl = album.coverUrl ?? album.artworkUrl
+  const serverProgress = await getAudioProgressForAlbum()
   const tracks: AlbumTrack[] = album.files.map((file) => ({
     id: file.id,
     title: file.title,
@@ -91,6 +99,7 @@ export default async function AlbumPage({ params, searchParams }: Props) {
         artworkUrl={artworkUrl}
         initialTrackId={trackId}
         autoPlay={play === '1'}
+        serverProgress={serverProgress}
       />
     </div>
   )

@@ -1,5 +1,6 @@
 import 'server-only'
 import { createHash } from 'node:crypto'
+import { bunnyDateToIso } from './bunnyDates'
 import {
   getAllVideoCategoryIds,
   getVideoCategoryLabelMap,
@@ -37,6 +38,7 @@ type StreamVideo = {
   thumbnailFileName: string
   /** CDN URL returned by Bunny (requires Referer on the Stream pull zone). */
   apiThumbnailUrl?: string
+  dateUploaded?: string
   metaTags: StreamMetaTag[]
 }
 
@@ -172,6 +174,7 @@ function parseVideo(value: unknown): StreamVideo | null {
       typeof value.thumbnailUrl === 'string' && value.thumbnailUrl.trim()
         ? value.thumbnailUrl.trim()
         : undefined,
+    dateUploaded: bunnyDateToIso(value.dateUploaded),
     metaTags: parseMetaTags(value.metaTags),
   }
 }
@@ -214,6 +217,7 @@ function toAdminVideo(
       video.apiThumbnailUrl ??
       primaryStreamThumbnailUrl(libraryId, video.guid, thumbnailFileName, cdnUrl),
     thumbnailFileName,
+    dateUploaded: video.dateUploaded,
     status: video.status,
     encodeProgress: video.encodeProgress,
   }

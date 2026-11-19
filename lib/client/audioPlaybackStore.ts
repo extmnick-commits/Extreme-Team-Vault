@@ -1,21 +1,25 @@
+import {
+  END_BUFFER_SEC,
+  MIN_RESUME_SEC,
+  clearLocalAudio,
+  queueAudioHistory,
+  readLocalAudio,
+} from './historySync'
+import type { AudioHistoryEntry } from './historyTypes'
+
 const PROGRESS_KEY = 'etv_audio_progress'
 const ALBUM_KEY_PREFIX = 'etv_audio_album:'
 
-/** Don't resume if within this many seconds of the end. */
-const END_BUFFER_SEC = 8
-/** Don't resume if position is below this (prefer starting fresh). */
-const MIN_RESUME_SEC = 3
+type LegacyProgressMap = Record<string, number>
 
-type ProgressMap = Record<string, number>
-
-function readProgressMap(): ProgressMap {
+function readLegacyProgressMap(): LegacyProgressMap {
   if (typeof window === 'undefined') return {}
   try {
     const raw = localStorage.getItem(PROGRESS_KEY)
     if (!raw) return {}
     const parsed = JSON.parse(raw) as unknown
     if (!parsed || typeof parsed !== 'object') return {}
-    const map: ProgressMap = {}
+    const map: LegacyProgressMap = {}
     for (const [id, time] of Object.entries(parsed as Record<string, unknown>)) {
       if (typeof time === 'number' && Number.isFinite(time) && time >= 0) {
         map[id] = time
@@ -27,7 +31,7 @@ function readProgressMap(): ProgressMap {
   }
 }
 
-function writeProgressMap(map: ProgressMap): void {
+function writeLegacyProgressMap(map: LegacyProgressMap): void {
   if (typeof window === 'undefined') return
   try {
     localStorage.setItem(PROGRESS_KEY, JSON.stringify(map))
@@ -37,28 +41,77 @@ function writeProgressMap(map: ProgressMap): void {
 }
 
 export function getTrackProgress(trackId: string): number | null {
-  const time = readProgressMap()[trackId]
+  const local = readLocalAudio()[trackId]
+  if (local && Number.isFinite(local.positionSec)) return local.positionSec
+  const time = readLegacyProgressMap()[trackId]
   return time != null ? time : null
 }
 
-export function saveTrackProgress(trackId: string, seconds: number, duration?: number): void {
-  if (!Number.isFinite(seconds) || seconds < MIN_RESUME_SEC) return
-  if (duration != null && Number.isFinite(duration) && duration > 0) {
-    if (seconds >= duration - END_BUFFER_SEC) {
-      clearTrackProgress(trackId)
-      return
+export function getTrackHistory(trackId: string): AudioHistoryEntry | null {
+  return readLocalAudio()[trackId] ?? null
+}
+
+export function saveTrackProgress(
+  trackId: string,
+  seconds: number,
+  duration?: number,
+  albumId?: string,
+  options?: { immediate?: boolean },
+): void {
+  if (!Number.isFinite(seconds) || seconds < 0) return
+  const durationSec = duration != null && Number.isFinite(duration) ? duration : 0
+  const completed =
+    durationSec > 0 && seconds >= durationSec - END_BUFFER_SEC
+  const map = readLegacyProgressMap()
+
+  if (completed) {
+    if (trackId in map) {
+      delete map[trackId]
+      writeLegacyProgressMap(map)
     }
+    if (albumId) {
+      queueAudioHistory(
+        {
+          recordingId: trackId,
+          albumId,
+          positionSec: durationSec,
+          durationSec,
+          lastPlayedAt: new Date().toISOString(),
+          completed: true,
+        },
+        true,
+      )
+    }
+    return
   }
-  const map = readProgressMap()
+
+  // Loading, seeking to 0, or a page-exit flush before playback must not wipe a real resume point.
+  if (seconds < MIN_RESUME_SEC) return
+
   map[trackId] = seconds
-  writeProgressMap(map)
+  writeLegacyProgressMap(map)
+
+  if (!albumId) return
+  queueAudioHistory(
+    {
+      recordingId: trackId,
+      albumId,
+      positionSec: seconds,
+      durationSec,
+      lastPlayedAt: new Date().toISOString(),
+      completed: false,
+    },
+    options?.immediate === true,
+  )
 }
 
 export function clearTrackProgress(trackId: string): void {
-  const map = readProgressMap()
-  if (!(trackId in map)) return
-  delete map[trackId]
-  writeProgressMap(map)
+  const map = readLegacyProgressMap()
+  if (trackId in map) {
+    delete map[trackId]
+    writeLegacyProgressMap(map)
+  }
+  clearLocalAudio(trackId)
 }
 
 export type AlbumPlaybackHint = { trackId: string; trackIndex: number }
@@ -95,12 +148,31 @@ export function saveAlbumPlaybackHint(
   }
 }
 
+export type ResumeSource = {
+  positionSec: number
+  lastPlayedAt?: string
+}
+
 export function resumeTimeForTrack(
   trackId: string,
-  duration: number
+  duration: number,
+  server?: ResumeSource | null,
 ): number | null {
-  const saved = getTrackProgress(trackId)
-  if (saved == null || saved < MIN_RESUME_SEC) return null
-  if (duration > 0 && saved >= duration - END_BUFFER_SEC) return null
-  return saved
+  const local = getTrackHistory(trackId)
+  const localPos = local?.positionSec ?? getTrackProgress(trackId)
+  const candidates: ResumeSource[] = []
+  if (server && Number.isFinite(server.positionSec)) candidates.push(server)
+  if (localPos != null) {
+    candidates.push({
+      positionSec: localPos,
+      lastPlayedAt: local?.lastPlayedAt,
+    })
+  }
+  candidates.sort((a, b) => (b.lastPlayedAt ?? '').localeCompare(a.lastPlayedAt ?? ''))
+  for (const candidate of candidates) {
+    if (candidate.positionSec < MIN_RESUME_SEC) continue
+    if (duration > 0 && candidate.positionSec >= duration - END_BUFFER_SEC) continue
+    return candidate.positionSec
+  }
+  return null
 }

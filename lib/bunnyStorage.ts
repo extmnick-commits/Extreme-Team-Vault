@@ -1,4 +1,5 @@
 import 'server-only'
+import { bunnyDateToIso, parseBunnyDate } from './bunnyDates'
 import {
   documentCoverCdnUrl,
   encodeBunnyObjectPath,
@@ -393,10 +394,8 @@ function formatFileSize(bytes: number): string {
 }
 
 function formatDate(value: string): string {
-  // Bunny returns timestamps without a timezone; they are UTC.
-  const iso = /[zZ]|[+-]\d{2}:?\d{2}$/.test(value) ? value : `${value}Z`
-  const date = new Date(iso)
-  return Number.isNaN(date.getTime()) ? 'Unknown date' : dateFormatter.format(date)
+  const date = parseBunnyDate(value)
+  return date ? dateFormatter.format(date) : 'Unknown date'
 }
 
 function getFileType(name: string, library: Library): string {
@@ -438,6 +437,8 @@ function toLibraryFile(
       isPdfLibrary(library) && thumbnailName
         ? documentCoverCdnUrl(cdnUrl, library, thumbnailName)
         : undefined,
+    dateCreated: bunnyDateToIso(item.DateCreated),
+    lastChanged: bunnyDateToIso(item.LastChanged),
     sectionId,
     customTitle,
     customDescription,

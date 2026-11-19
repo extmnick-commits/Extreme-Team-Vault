@@ -1,10 +1,19 @@
 import 'server-only'
 import { SignJWT, jwtVerify } from 'jose'
 import { cookies } from 'next/headers'
+import {
+  MEMBER_COOKIE,
+  isMemberId,
+  memberCookieSetOptions,
+  newMemberId,
+  signMemberToken,
+  verifyMemberToken,
+} from '@/lib/memberCookie'
 
 const SESSION_COOKIE = 'etv_session'
 export const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000 // 7 days
 export const REMEMBER_SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000 // 30 days
+export { MEMBER_COOKIE }
 
 function getEncodedKey(): Uint8Array {
   const secret = process.env.SESSION_SECRET
@@ -18,6 +27,8 @@ export type SessionPayload = {
   authenticated: true
   // Sessions issued before roles existed have no role and are treated as members.
   role?: SessionRole
+  // Stable per-browser member identity for personal history. Not a login username.
+  memberId?: string
   expiresAt: number
 }
 
@@ -49,6 +60,37 @@ export async function decrypt(
   }
 }
 
+async function readMemberIdFromCookieStore(): Promise<string | null> {
+  const cookieStore = await cookies()
+  return verifyMemberToken(cookieStore.get(MEMBER_COOKIE)?.value)
+}
+
+export async function persistMemberCookie(memberId: string): Promise<void> {
+  const cookieStore = await cookies()
+  cookieStore.set(MEMBER_COOKIE, await signMemberToken(memberId), memberCookieSetOptions())
+}
+
+export async function resolveMemberId(
+  session: SessionPayload | null = null,
+): Promise<string | null> {
+  if (session?.memberId && isMemberId(session.memberId)) return session.memberId
+  return readMemberIdFromCookieStore()
+}
+
+export async function getOrCreateMemberId(
+  session: SessionPayload | null | undefined = undefined,
+): Promise<string> {
+  const resolved = session === undefined ? await getSession() : session
+  const existing = await resolveMemberId(resolved)
+  if (existing) {
+    await persistMemberCookie(existing)
+    return existing
+  }
+  const memberId = newMemberId()
+  await persistMemberCookie(memberId)
+  return memberId
+}
+
 export async function createSession(
   role: SessionRole,
   options?: { remember?: boolean }
@@ -56,7 +98,11 @@ export async function createSession(
   const durationMs =
     options?.remember === true ? REMEMBER_SESSION_DURATION_MS : SESSION_DURATION_MS
   const expiresAt = Date.now() + durationMs
-  const token = await encrypt({ authenticated: true, role, expiresAt }, durationMs)
+  const memberId = await getOrCreateMemberId(null)
+  const token = await encrypt(
+    { authenticated: true, role, memberId, expiresAt },
+    durationMs,
+  )
   const cookieStore = await cookies()
 
   cookieStore.set(SESSION_COOKIE, token, {

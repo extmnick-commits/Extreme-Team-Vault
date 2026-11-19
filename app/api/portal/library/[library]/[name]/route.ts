@@ -2,12 +2,15 @@ import { NextResponse } from 'next/server'
 import { getSession } from '@/app/lib/session'
 import { readObject } from '@/lib/bunnyStorage'
 import { isDocumentCoverObjectName } from '@/lib/documentCovers'
-import { contentDispositionAttachment } from '@/lib/portalDownload'
+import {
+  contentDispositionAttachment,
+  contentDispositionInline,
+} from '@/lib/portalDownload'
 import { isLibrary } from '@/lib/libraryTypes'
 
 type RouteContext = { params: Promise<{ library: string; name: string }> }
 
-export async function GET(_request: Request, context: RouteContext) {
+export async function GET(request: Request, context: RouteContext) {
   const session = await getSession()
   if (!session?.authenticated) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -29,12 +32,16 @@ export async function GET(_request: Request, context: RouteContext) {
     return NextResponse.json({ error: 'Invalid file name.' }, { status: 400 })
   }
 
+  const inline = new URL(request.url).searchParams.get('inline') === '1'
+
   try {
     const { body, contentType } = await readObject(libraryRaw, name)
     return new NextResponse(body, {
       headers: {
         'Content-Type': contentType || 'application/octet-stream',
-        'Content-Disposition': contentDispositionAttachment(name),
+        'Content-Disposition': inline
+          ? contentDispositionInline(name)
+          : contentDispositionAttachment(name),
         'Cache-Control': 'private, no-store',
       },
     })

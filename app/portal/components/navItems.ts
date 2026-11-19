@@ -4,6 +4,7 @@ import {
   FileText,
   FolderCog,
   Headphones,
+  Home,
   Radio,
   Video,
   type LucideIcon,
@@ -14,6 +15,13 @@ export type NavItem = {
   label: string
   description: string
   icon: LucideIcon
+}
+
+export const HOME_NAV_ITEM: NavItem = {
+  href: '/portal/dashboard',
+  label: 'Home',
+  description: 'Pick up where you left off.',
+  icon: Home,
 }
 
 export const NAV_ITEMS: NavItem[] = [
@@ -43,7 +51,7 @@ export const NAV_ITEMS: NavItem[] = [
   },
   {
     href: '/portal/books',
-    label: 'PDF Book',
+    label: 'PDF Books',
     description: 'Team books and long-form guides to read online.',
     icon: BookOpen,
   },
