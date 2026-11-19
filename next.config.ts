@@ -25,7 +25,16 @@ function bunnyStreamImagePatterns(): NonNullable<NextConfig['images']>['remotePa
   return patterns
 }
 
+function devAllowedOrigins(): string[] {
+  const fromEnv =
+    process.env.DEV_ALLOWED_ORIGINS?.split(',')
+      .map((entry) => entry.trim())
+      .filter(Boolean) ?? []
+  return [...new Set(['192.168.1.175', ...fromEnv])]
+}
+
 const nextConfig: NextConfig = {
+  allowedDevOrigins: devAllowedOrigins(),
   transpilePackages: ['@zoom/meetingsdk'],
   turbopack: {
     resolveAlias: {

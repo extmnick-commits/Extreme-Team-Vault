@@ -1,8 +1,10 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Clock, Download, ExternalLink, FileText, Play, X } from 'lucide-react'
+import { isAndroidBrowser } from '@/lib/mobileVideo'
 import type { VideoItem, VideoLinkedDocument } from '@/lib/videoTypes'
+import PortalStreamVideo from './PortalStreamVideo'
 import VideoPoster from './VideoPoster'
 import VideoThumbnailImage from './VideoThumbnailImage'
 
@@ -30,10 +32,50 @@ function playerEmbedSrc(libraryId: string, bunnyVideoId: string) {
   return `https://player.mediadelivery.net/embed/${libraryId}/${bunnyVideoId}?${params}`
 }
 
+type MobilePlayerMode = 'native' | 'embed'
+
 export default function VideoModal({ video, onClose }: VideoModalProps) {
   const mobileCloseRef = useRef<HTMLButtonElement>(null)
   const desktopCloseRef = useRef<HTMLButtonElement>(null)
+  const androidVideoRef = useRef<HTMLVideoElement>(null)
   const [isPlaying, setIsPlaying] = useState(false)
+  const [android, setAndroid] = useState(false)
+  const [mobilePlayerMode, setMobilePlayerMode] = useState<MobilePlayerMode>('embed')
+
+  const posterUrl = useMemo(
+    () => `/api/portal/video-thumbnail/${encodeURIComponent(video.bunnyVideoId)}`,
+    [video.bunnyVideoId],
+  )
+
+  useEffect(() => {
+    setAndroid(isAndroidBrowser())
+  }, [])
+
+  useEffect(() => {
+    if (!android) return
+    setMobilePlayerMode('native')
+    setIsPlaying(true)
+  }, [android])
+
+  useEffect(() => {
+    if (!isPlaying || mobilePlayerMode !== 'native') return
+    const el = androidVideoRef.current
+    if (!el) return
+    void el.play().catch(() => undefined)
+  }, [isPlaying, mobilePlayerMode])
+
+  function startPlayback() {
+    if (android) {
+      setMobilePlayerMode('native')
+      setIsPlaying(true)
+      const el = androidVideoRef.current
+      if (!el) return
+      void el.play().catch(() => undefined)
+      return
+    }
+    setMobilePlayerMode('embed')
+    setIsPlaying(true)
+  }
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow
@@ -56,6 +98,8 @@ export default function VideoModal({ video, onClose }: VideoModalProps) {
   const embedSrc = playerEmbedSrc(video.libraryId, video.bunnyVideoId)
   const materials = video.linkedDocuments ?? []
 
+  const androidNativeActive = isPlaying && mobilePlayerMode === 'native' && android
+
   return (
     <div
       className="portal-video-backdrop fixed inset-0 z-50 flex items-stretch justify-center bg-zinc-950/70 backdrop-blur-sm sm:items-center sm:p-4 md:p-8"
@@ -65,7 +109,9 @@ export default function VideoModal({ video, onClose }: VideoModalProps) {
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="portal-video-sheet flex h-dvh w-full max-w-5xl flex-col overflow-hidden bg-surface pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)] shadow-2xl sm:h-auto sm:max-h-[min(92dvh,960px)] sm:overflow-y-auto sm:rounded-2xl sm:pr-0 sm:pl-0"
+        className={`portal-video-sheet flex h-dvh w-full max-w-5xl flex-col overflow-hidden bg-surface pr-[env(safe-area-inset-right)] pl-[env(safe-area-inset-left)] shadow-2xl sm:h-auto sm:max-h-[min(92dvh,960px)] sm:overflow-y-auto sm:rounded-2xl sm:pr-0 sm:pl-0 ${
+          androidNativeActive ? 'portal-video-android-player' : ''
+        }`}
         onClick={(event) => event.stopPropagation()}
       >
         <div className="portal-video-chrome flex shrink-0 items-center gap-2 border-b border-line bg-surface pt-[env(safe-area-inset-top)] pr-1 pl-3 sm:hidden">
@@ -83,21 +129,34 @@ export default function VideoModal({ video, onClose }: VideoModalProps) {
           </button>
         </div>
 
-        <div className="flex w-full shrink-0 items-center justify-center bg-black">
+        <div
+          className={`flex w-full items-center justify-center bg-black ${
+            androidNativeActive ? 'min-h-0 h-full flex-1' : 'shrink-0'
+          }`}
+        >
           <div className="portal-video-frame bg-black">
-            {isPlaying ? (
-              <iframe
-                src={embedSrc}
+            {android && (
+              <PortalStreamVideo
+                ref={androidVideoRef}
+                videoId={video.bunnyVideoId}
                 title={video.title}
-                allow={PLAYER_ALLOW}
-                allowFullScreen
-                referrerPolicy="strict-origin-when-cross-origin"
-                className="absolute inset-0 size-full border-0"
+                poster={posterUrl}
               />
-            ) : (
+            )}
+            {isPlaying && mobilePlayerMode === 'embed' ? (
+                <iframe
+                  src={embedSrc}
+                  title={video.title}
+                  allow={PLAYER_ALLOW}
+                  allowFullScreen
+                  referrerPolicy="strict-origin-when-cross-origin"
+                  className="absolute inset-0 size-full border-0"
+                />
+            ) : null}
+            {!isPlaying ? (
               <button
                 type="button"
-                onClick={() => setIsPlaying(true)}
+                onClick={startPlayback}
                 className="group/player absolute inset-0 flex w-full touch-manipulation items-center justify-center"
                 aria-label={`Play ${video.title}`}
               >
@@ -114,7 +173,7 @@ export default function VideoModal({ video, onClose }: VideoModalProps) {
                   </span>
                 </span>
               </button>
-            )}
+            ) : null}
           </div>
         </div>
 

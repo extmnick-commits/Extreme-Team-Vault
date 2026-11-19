@@ -85,6 +85,7 @@ export default async function AlbumPage({ params, searchParams }: Props) {
       {album.description && <p className="-mt-2 text-sm text-ink-muted sm:hidden">{album.description}</p>}
 
       <AlbumPlayer
+        albumId={albumId}
         albumName={album.name}
         tracks={tracks}
         artworkUrl={artworkUrl}

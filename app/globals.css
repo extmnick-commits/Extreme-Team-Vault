@@ -32,6 +32,7 @@ body {
   position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
+  overflow: hidden;
 }
 
 @media (max-width: 639px), (max-height: 520px) {
@@ -85,5 +86,36 @@ body {
       )
     );
     margin-inline: auto;
+  }
+
+  .portal-video-android-player {
+    position: relative;
+    background: #000;
+  }
+
+  .portal-video-android-player .portal-video-chrome {
+    position: absolute;
+    z-index: 2;
+    top: 0;
+    right: 0;
+    left: 0;
+    border: 0;
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0.72), transparent);
+  }
+
+  .portal-video-android-player .portal-video-chrome p,
+  .portal-video-android-player .portal-video-chrome button {
+    color: #fafafa;
+  }
+
+  .portal-video-android-player .portal-video-details {
+    display: none;
+  }
+
+  .portal-video-android-player .portal-video-frame {
+    width: 100%;
+    height: 100%;
+    aspect-ratio: auto;
+    margin-inline: 0;
   }
 }

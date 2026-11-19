@@ -65,6 +65,17 @@ export default function LoginForm() {
                 </div>
               </div>
 
+              <label className="flex cursor-pointer items-center gap-2.5 text-sm text-ink-muted select-none">
+                <input
+                  type="checkbox"
+                  name="remember"
+                  defaultChecked
+                  className="size-4 rounded border-line text-violet-600 focus:ring-violet-500"
+                  disabled={isPending}
+                />
+                Keep me signed in for 30 days
+              </label>
+
               {/* Error message */}
               {state && 'error' in state && (
                 <div className="flex items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 px-3.5 py-3">

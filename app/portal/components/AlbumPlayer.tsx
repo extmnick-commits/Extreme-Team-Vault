@@ -2,6 +2,14 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { Download, Loader2, Pause, Play, SkipBack, SkipForward } from 'lucide-react'
+import {
+  clearTrackProgress,
+  getAlbumPlaybackHint,
+  getTrackProgress,
+  resumeTimeForTrack,
+  saveAlbumPlaybackHint,
+  saveTrackProgress,
+} from '@/lib/client/audioPlaybackStore'
 import AlbumArtwork from './AlbumArtwork'
 
 export type AlbumTrack = {
@@ -24,13 +32,17 @@ function formatTime(seconds: number): string {
   return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${s}` : `${m}:${s}`
 }
 
+const PROGRESS_SAVE_INTERVAL_MS = 2500
+
 export default function AlbumPlayer({
+  albumId,
   albumName,
   tracks,
   artworkUrl,
   initialTrackId,
   autoPlay = false,
 }: {
+  albumId?: string
   albumName: string
   tracks: AlbumTrack[]
   artworkUrl?: string
@@ -39,6 +51,7 @@ export default function AlbumPlayer({
 }) {
   const audioRef = useRef<HTMLAudioElement>(null)
   const playOnLoad = useRef(autoPlay)
+  const lastProgressSave = useRef(0)
   const [index, setIndex] = useState(() => {
     if (!initialTrackId) return 0
     const found = tracks.findIndex((t) => t.id === initialTrackId)
@@ -52,6 +65,29 @@ export default function AlbumPlayer({
   const track = tracks[index]
   const hasPrev = index > 0
   const hasNext = index < tracks.length - 1
+  const indexRef = useRef(index)
+  indexRef.current = index
+
+  useEffect(() => {
+    if (initialTrackId || !albumId) return
+    const hint = getAlbumPlaybackHint(albumId)
+    if (!hint) return
+    const byId = tracks.findIndex((t) => t.id === hint.trackId)
+    if (byId >= 0) {
+      setIndex(byId)
+      return
+    }
+    if (hint.trackIndex >= 0 && hint.trackIndex < tracks.length) {
+      setIndex(hint.trackIndex)
+    }
+  }, [albumId, initialTrackId, tracks])
+
+  function persistCurrentProgress() {
+    const audio = audioRef.current
+    const current = tracks[index]
+    if (!audio || !current) return
+    saveTrackProgress(current.id, audio.currentTime, audio.duration)
+  }
 
   function goTo(next: number, autoplay = true) {
     if (next < 0 || next >= tracks.length) return
@@ -59,6 +95,7 @@ export default function AlbumPlayer({
       void audioRef.current?.play()
       return
     }
+    persistCurrentProgress()
     playOnLoad.current = autoplay
     setTime(0)
     setDuration(0)
@@ -85,6 +122,25 @@ export default function AlbumPlayer({
   })
 
   const art = artworkUrl ?? track?.artworkUrl
+
+  useEffect(() => {
+    if (!albumId || !track) return
+    saveAlbumPlaybackHint(albumId, { trackId: track.id, trackIndex: index })
+  }, [albumId, index, track])
+
+  useEffect(() => {
+    const flush = () => {
+      const audio = audioRef.current
+      const current = tracks[indexRef.current]
+      if (!audio || !current) return
+      saveTrackProgress(current.id, audio.currentTime, audio.duration)
+    }
+    window.addEventListener('pagehide', flush)
+    return () => {
+      flush()
+      window.removeEventListener('pagehide', flush)
+    }
+  }, [tracks])
 
   useEffect(() => {
     if (!('mediaSession' in navigator) || !track) return
@@ -117,19 +173,41 @@ export default function AlbumPlayer({
           src={track.src}
           preload="metadata"
           onLoadedMetadata={(e) => {
-            setDuration(e.currentTarget.duration)
+            const audio = e.currentTarget
+            const d = audio.duration
+            setDuration(d)
+            const resumeAt = resumeTimeForTrack(track.id, d)
+            if (resumeAt != null) {
+              audio.currentTime = resumeAt
+              setTime(resumeAt)
+            } else {
+              const saved = getTrackProgress(track.id)
+              if (saved != null && saved > 0) setTime(saved)
+            }
             if (playOnLoad.current) {
               playOnLoad.current = false
-              void e.currentTarget.play()
+              void audio.play()
             }
           }}
-          onTimeUpdate={(e) => setTime(e.currentTarget.currentTime)}
+          onTimeUpdate={(e) => {
+            const audio = e.currentTarget
+            setTime(audio.currentTime)
+            const now = Date.now()
+            if (now - lastProgressSave.current >= PROGRESS_SAVE_INTERVAL_MS) {
+              lastProgressSave.current = now
+              saveTrackProgress(track.id, audio.currentTime, audio.duration)
+            }
+          }}
           onPlay={() => setPlaying(true)}
-          onPause={() => setPlaying(false)}
+          onPause={(e) => {
+            setPlaying(false)
+            saveTrackProgress(track.id, e.currentTarget.currentTime, e.currentTarget.duration)
+          }}
           onWaiting={() => setLoading(true)}
           onPlaying={() => setLoading(false)}
           onCanPlay={() => setLoading(false)}
           onEnded={() => {
+            clearTrackProgress(track.id)
             if (hasNext) goTo(index + 1)
             else setPlaying(false)
           }}
@@ -200,6 +278,7 @@ export default function AlbumPlayer({
               if (!audio) return
               audio.currentTime = Number(e.target.value)
               setTime(audio.currentTime)
+              saveTrackProgress(track.id, audio.currentTime, audio.duration)
             }}
             disabled={!duration}
             aria-label="Seek"

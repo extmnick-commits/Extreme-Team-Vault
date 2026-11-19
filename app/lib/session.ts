@@ -3,7 +3,8 @@ import { SignJWT, jwtVerify } from 'jose'
 import { cookies } from 'next/headers'
 
 const SESSION_COOKIE = 'etv_session'
-const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000 // 7 days
+export const SESSION_DURATION_MS = 7 * 24 * 60 * 60 * 1000 // 7 days
+export const REMEMBER_SESSION_DURATION_MS = 30 * 24 * 60 * 60 * 1000 // 30 days
 
 function getEncodedKey(): Uint8Array {
   const secret = process.env.SESSION_SECRET
@@ -20,11 +21,17 @@ export type SessionPayload = {
   expiresAt: number
 }
 
-export async function encrypt(payload: SessionPayload): Promise<string> {
+export async function encrypt(
+  payload: SessionPayload,
+  durationMs: number = SESSION_DURATION_MS
+): Promise<string> {
+  const maxAgeDays = Math.ceil(durationMs / (24 * 60 * 60 * 1000))
+  const expiration =
+    maxAgeDays >= 30 ? '30d' : maxAgeDays >= 7 ? '7d' : `${Math.ceil(durationMs / 1000)}s`
   return new SignJWT(payload as unknown as Record<string, unknown>)
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
-    .setExpirationTime('7d')
+    .setExpirationTime(expiration)
     .sign(getEncodedKey())
 }
 
@@ -42,9 +49,14 @@ export async function decrypt(
   }
 }
 
-export async function createSession(role: SessionRole): Promise<void> {
-  const expiresAt = Date.now() + SESSION_DURATION_MS
-  const token = await encrypt({ authenticated: true, role, expiresAt })
+export async function createSession(
+  role: SessionRole,
+  options?: { remember?: boolean }
+): Promise<void> {
+  const durationMs =
+    options?.remember === true ? REMEMBER_SESSION_DURATION_MS : SESSION_DURATION_MS
+  const expiresAt = Date.now() + durationMs
+  const token = await encrypt({ authenticated: true, role, expiresAt }, durationMs)
   const cookieStore = await cookies()
 
   cookieStore.set(SESSION_COOKIE, token, {

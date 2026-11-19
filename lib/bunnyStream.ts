@@ -517,6 +517,289 @@ export async function fetchStreamThumbnail(
   return { body: await response.arrayBuffer(), contentType }
 }
 
+const STREAM_MP4_RENDITIONS = [
+  'play_1080p.mp4',
+  'play_720p.mp4',
+  'play_480p.mp4',
+  'play_360p.mp4',
+  'play_240p.mp4',
+] as const
+
+type StreamVideoPlayData = {
+  videoPlaylistUrl: string | null
+  fallbackUrl: string | null
+  enableMP4Fallback: boolean
+}
+
+function parseStreamVideoPlayData(value: unknown): StreamVideoPlayData {
+  if (!isRecord(value)) {
+    return { videoPlaylistUrl: null, fallbackUrl: null, enableMP4Fallback: false }
+  }
+  return {
+    videoPlaylistUrl:
+      typeof value.videoPlaylistUrl === 'string' && value.videoPlaylistUrl.trim()
+        ? value.videoPlaylistUrl.trim()
+        : null,
+    fallbackUrl:
+      typeof value.fallbackUrl === 'string' && value.fallbackUrl.trim()
+        ? value.fallbackUrl.trim()
+        : null,
+    enableMP4Fallback: value.enableMP4Fallback === true,
+  }
+}
+
+export async function getStreamVideoPlayData(videoId: string): Promise<StreamVideoPlayData> {
+  const response = await streamFetch(`/videos/${encodeURIComponent(videoId)}/play`, {
+    fresh: true,
+  })
+  return parseStreamVideoPlayData(await response.json())
+}
+
+export function isAllowedStreamCdnUrl(raw: string): boolean {
+  try {
+    const url = new URL(raw)
+    if (url.protocol !== 'https:') return false
+    return url.hostname.endsWith('.b-cdn.net') || url.hostname.endsWith('.mediadelivery.net')
+  } catch {
+    return false
+  }
+}
+
+function resolveCdnUrl(relative: string, baseUrl: string): string {
+  if (relative.startsWith('https://') || relative.startsWith('http://')) return relative
+  return new URL(relative, baseUrl).href
+}
+
+function streamCdnProxyPath(videoId: string, cdnUrl: string): string {
+  return `/api/portal/video-playback/${encodeURIComponent(videoId)}/cdn?url=${encodeURIComponent(cdnUrl)}`
+}
+
+export function rewriteHlsPlaylistForProxy(
+  playlistBody: string,
+  playlistUrl: string,
+  videoId: string,
+): string {
+  return playlistBody
+    .split(/\r?\n/)
+    .map((line) => {
+      if (line.includes('URI="')) {
+        return line.replace(/URI="([^"]+)"/g, (_match, uri: string) => {
+          const absolute = resolveCdnUrl(uri, playlistUrl)
+          return `URI="${streamCdnProxyPath(videoId, absolute)}"`
+        })
+      }
+      const trimmed = line.trim()
+      if (!trimmed || trimmed.startsWith('#')) return line
+      return streamCdnProxyPath(videoId, resolveCdnUrl(trimmed, playlistUrl))
+    })
+    .join('\n')
+}
+
+function mp4BaseCandidates(
+  videoId: string,
+  base: string,
+  play: StreamVideoPlayData | null,
+): string[] {
+  const normalized = base.replace(/\/+$/, '')
+  const candidates = [normalized]
+  if (play?.fallbackUrl) {
+    const fallback = play.fallbackUrl.replace(/\/+$/, '')
+    if (!candidates.includes(fallback)) candidates.push(fallback)
+    const withId = `${fallback}/${videoId}`
+    if (!candidates.includes(withId)) candidates.push(withId)
+  }
+  return candidates
+}
+
+async function headMp4Available(
+  bases: string[],
+  referer: string,
+): Promise<boolean> {
+  for (const prefix of bases) {
+    for (const file of STREAM_MP4_RENDITIONS) {
+      const url = `${prefix}/${file}`
+      const response = await fetch(url, {
+        method: 'HEAD',
+        headers: { Referer: referer },
+        cache: 'no-store',
+      })
+      if (response.ok) return true
+    }
+  }
+  return false
+}
+
+export type NativePlaybackEndpoint = {
+  format: 'hls' | 'mp4'
+  url: string
+}
+
+export async function resolveNativePlaybackEndpoint(
+  videoId: string,
+): Promise<NativePlaybackEndpoint> {
+  const base = await streamCdnBaseForVideo(videoId)
+  const referer = streamCdnReferer()
+  const play = await getStreamVideoPlayData(videoId).catch(() => null)
+  const mp4Available = await headMp4Available(mp4BaseCandidates(videoId, base, play), referer)
+
+  const encoded = encodeURIComponent(videoId)
+  if (mp4Available) {
+    return { format: 'mp4', url: `/api/portal/video-playback/${encoded}/stream` }
+  }
+  return { format: 'hls', url: `/api/portal/video-playback/${encoded}/hls` }
+}
+
+export async function fetchRewrittenHlsPlaylist(videoId: string): Promise<string> {
+  const play = await getStreamVideoPlayData(videoId)
+  const playlistUrl =
+    play.videoPlaylistUrl ?? `${await streamCdnBaseForVideo(videoId)}/playlist.m3u8`
+  const response = await fetch(playlistUrl, {
+    headers: { Referer: streamCdnReferer() },
+    cache: 'no-store',
+  })
+  if (!response.ok) {
+    throw new BunnyStreamError(
+      `HLS playlist fetch failed (${response.status} ${response.statusText}).`,
+    )
+  }
+  const body = await response.text()
+  return rewriteHlsPlaylistForProxy(body, playlistUrl, videoId)
+}
+
+export async function fetchStreamCdnAssetResponse(
+  videoId: string,
+  cdnUrl: string,
+  rangeHeader: string | null,
+): Promise<Response> {
+  if (!isAllowedStreamCdnUrl(cdnUrl)) {
+    throw new BunnyStreamError('Invalid stream CDN URL.')
+  }
+
+  const headers: Record<string, string> = { Referer: streamCdnReferer() }
+  if (rangeHeader) headers.Range = rangeHeader
+
+  const response = await fetch(cdnUrl, { headers, cache: 'no-store' })
+  if (!response.ok) {
+    throw new BunnyStreamError(
+      `Stream asset fetch failed (${response.status} ${response.statusText}).`,
+    )
+  }
+
+  const contentType = response.headers.get('content-type') ?? ''
+  const isPlaylist =
+    cdnUrl.includes('.m3u8') ||
+    contentType.includes('mpegurl') ||
+    contentType.includes('x-mpegURL')
+
+  if (isPlaylist) {
+    const body = await response.text()
+    return new Response(rewriteHlsPlaylistForProxy(body, cdnUrl, videoId), {
+      status: 200,
+      headers: { 'Content-Type': 'application/vnd.apple.mpegurl' },
+    })
+  }
+
+  return response
+}
+
+async function streamCdnBaseForVideo(videoId: string): Promise<string> {
+  const config = readConfig()
+  if (!config) {
+    throw new BunnyStreamError('Missing BUNNY_STREAM_LIBRARY_ID or BUNNY_STREAM_API_KEY.')
+  }
+  const cdnUrl = await resolveStreamCdnBase(config)
+  if (!cdnUrl) {
+    throw new BunnyStreamError(
+      'Stream CDN URL is not configured (set NEXT_PUBLIC_BUNNY_STREAM_CDN_URL).',
+    )
+  }
+  return `${cdnUrl.replace(/\/+$/, '')}/${encodeURIComponent(videoId)}`
+}
+
+/** Proxied MP4 from Bunny using the portal Referer (pull-zone hotlink rules). */
+export async function fetchStreamVideoMp4Response(
+  videoId: string,
+  rangeHeader: string | null,
+): Promise<Response> {
+  const base = await streamCdnBaseForVideo(videoId)
+  const referer = streamCdnReferer()
+  const play = await getStreamVideoPlayData(videoId).catch(() => null)
+  const bases = mp4BaseCandidates(videoId, base, play)
+  let lastStatus = 404
+
+  for (const prefix of bases) {
+    for (const file of STREAM_MP4_RENDITIONS) {
+      const headers: Record<string, string> = { Referer: referer }
+      if (rangeHeader) headers.Range = rangeHeader
+
+      const response = await fetch(`${prefix}/${file}`, {
+        headers,
+        cache: 'no-store',
+      })
+      lastStatus = response.status
+      if (response.status === 404) continue
+      if (!response.ok) {
+        throw new BunnyStreamError(
+          `Stream video fetch failed (${response.status} ${response.statusText}).`,
+        )
+      }
+      return response
+    }
+  }
+
+  throw new BunnyStreamError(`No playable MP4 renditions found (last status ${lastStatus}).`)
+}
+
+export async function resolveExternalDevicePlayerUrl(videoId: string): Promise<string> {
+  const base = await streamCdnBaseForVideo(videoId)
+  const referer = streamCdnReferer()
+  const play = await getStreamVideoPlayData(videoId).catch(() => null)
+
+  for (const prefix of mp4BaseCandidates(videoId, base, play)) {
+    for (const file of STREAM_MP4_RENDITIONS) {
+      const url = `${prefix}/${file}`
+      const response = await fetch(url, {
+        method: 'HEAD',
+        headers: { Referer: referer },
+        cache: 'no-store',
+      })
+      if (response.ok) return url
+    }
+  }
+
+  if (play?.videoPlaylistUrl) return play.videoPlaylistUrl
+  return `${base}/playlist.m3u8`
+}
+
+export type StreamPlaybackSources = {
+  hlsUrl: string
+  mp4Url: string
+  mp4Url480: string
+  streamUrl: string
+  nativePlayback: NativePlaybackEndpoint
+  /** Direct CDN URL for opening in Samsung Video / Gallery / other device players. */
+  devicePlayerUrl: string
+}
+
+/** HLS + MP4 URLs on the Stream pull zone (browser sends portal Referer for hotlink rules). */
+export async function getStreamVideoPlaybackSources(
+  videoId: string,
+): Promise<StreamPlaybackSources> {
+  const base = await streamCdnBaseForVideo(videoId)
+  const [nativePlayback, devicePlayerUrl] = await Promise.all([
+    resolveNativePlaybackEndpoint(videoId),
+    resolveExternalDevicePlayerUrl(videoId),
+  ])
+  return {
+    hlsUrl: `${base}/playlist.m3u8`,
+    mp4Url: `${base}/play_720p.mp4`,
+    mp4Url480: `${base}/play_480p.mp4`,
+    streamUrl: `/api/portal/video-playback/${encodeURIComponent(videoId)}/stream`,
+    nativePlayback,
+    devicePlayerUrl,
+  }
+}
+
 export async function getStreamVideoThumbnailUrl(videoId: string): Promise<string> {
   const video = await getVideo(videoId)
   const config = readConfig()

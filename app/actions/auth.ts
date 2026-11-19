@@ -39,7 +39,8 @@ export async function login(
     return { error: 'Incorrect password. Please try again.' }
   }
 
-  await createSession(role)
+  const remember = formData.get('remember') === 'on'
+  await createSession(role, { remember })
   redirect('/portal')
 }
 
