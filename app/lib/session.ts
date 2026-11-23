@@ -29,6 +29,8 @@ export type SessionPayload = {
   role?: SessionRole
   // Stable per-browser member identity for personal history. Not a login username.
   memberId?: string
+  /** Name entered at login (for admin activity tracking). */
+  displayName?: string
   expiresAt: number
 }
 
@@ -93,14 +95,21 @@ export async function getOrCreateMemberId(
 
 export async function createSession(
   role: SessionRole,
-  options?: { remember?: boolean }
+  options?: { remember?: boolean; displayName?: string }
 ): Promise<void> {
   const durationMs =
     options?.remember === true ? REMEMBER_SESSION_DURATION_MS : SESSION_DURATION_MS
   const expiresAt = Date.now() + durationMs
   const memberId = await getOrCreateMemberId(null)
+  const displayName = options?.displayName?.trim().slice(0, 80)
   const token = await encrypt(
-    { authenticated: true, role, memberId, expiresAt },
+    {
+      authenticated: true,
+      role,
+      memberId,
+      expiresAt,
+      ...(displayName ? { displayName } : {}),
+    },
     durationMs,
   )
   const cookieStore = await cookies()
@@ -134,6 +143,11 @@ export async function requireAdmin(): Promise<void> {
   if (!(await isAdmin())) {
     throw new Error('Unauthorized: admin access required')
   }
+}
+
+export function sessionDisplayName(session: SessionPayload | null | undefined): string | undefined {
+  const name = session?.displayName?.trim()
+  return name && name.length > 0 ? name : undefined
 }
 
 export { SESSION_COOKIE }

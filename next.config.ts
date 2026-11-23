@@ -1,4 +1,5 @@
 import type { NextConfig } from 'next'
+import { securityHeaderPairs } from './lib/securityHeaders'
 
 function bunnyStreamImagePatterns(): NonNullable<NextConfig['images']>['remotePatterns'] {
   const patterns: NonNullable<NextConfig['images']>['remotePatterns'] = [
@@ -34,6 +35,14 @@ function devAllowedOrigins(): string[] {
 }
 
 const nextConfig: NextConfig = {
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: securityHeaderPairs(),
+      },
+    ]
+  },
   allowedDevOrigins: devAllowedOrigins(),
   transpilePackages: ['@zoom/meetingsdk'],
   turbopack: {

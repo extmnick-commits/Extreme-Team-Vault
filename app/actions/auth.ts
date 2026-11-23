@@ -7,6 +7,12 @@ import {
   deleteSession,
   type SessionRole,
 } from '@/app/lib/session'
+import { parseDisplayName } from '@/lib/memberDisplayName'
+import {
+  assertLoginAllowed,
+  clearLoginGuard,
+  recordLoginFailure,
+} from '@/lib/loginGuard'
 
 export type LoginState =
   | { error: string }
@@ -17,10 +23,20 @@ export async function login(
   _prevState: LoginState,
   formData: FormData
 ): Promise<LoginState> {
+  const lockout = await assertLoginAllowed()
+  if (!lockout.ok) {
+    return { error: lockout.error }
+  }
+
+  const displayName = parseDisplayName(formData.get('displayName'))
+  if (!displayName) {
+    return { error: 'Enter your name (at least 2 characters).' }
+  }
+
   const password = formData.get('password')
 
   if (typeof password !== 'string' || password.trim() === '') {
-    return { error: 'Password is required.' }
+    return { error: 'PIN is required.' }
   }
 
   const teamPassword = process.env.TEAM_PASSWORD
@@ -36,11 +52,13 @@ export async function login(
   } else if (safeEqual(password, teamPassword)) {
     role = 'member'
   } else {
-    return { error: 'Incorrect password. Please try again.' }
+    await recordLoginFailure()
+    return { error: 'Incorrect PIN. Please try again.' }
   }
 
   const remember = formData.get('remember') === 'on'
-  await createSession(role, { remember })
+  await clearLoginGuard()
+  await createSession(role, { remember, displayName })
   redirect('/portal')
 }
 

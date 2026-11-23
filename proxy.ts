@@ -10,6 +10,7 @@ import {
   signMemberToken,
   verifyMemberToken,
 } from '@/lib/memberCookie'
+import { applySecurityHeaders } from '@/lib/securityHeaders'
 
 // Encode the secret key inline — proxy runs in the edge-like Node runtime
 // and cannot import from 'server-only' modules.
@@ -38,23 +39,26 @@ async function verifySession(
   }
 }
 
-export async function proxy(request: NextRequest) {
-  const token = request.cookies.get(SESSION_COOKIE)?.value
-  const session = await verifySession(token)
+function unauthorizedJson(): NextResponse {
+  const response = NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  response.headers.set('Cache-Control', 'private, no-store')
+  return applySecurityHeaders(response)
+}
 
-  if (!session) {
-    // Redirect unauthenticated users to the login page
-    return NextResponse.redirect(new URL('/', request.url))
-  }
+async function continueWithSession(
+  request: NextRequest,
+  session: VerifiedSession,
+): Promise<NextResponse> {
+  const response = applySecurityHeaders(NextResponse.next())
+  response.headers.set('Cache-Control', 'private, no-store')
+  return attachMemberCookie(request, response, session)
+}
 
-  const { pathname } = request.nextUrl
-  const isAdminPath =
-    pathname === '/portal/admin' || pathname.startsWith('/portal/admin/')
-  if (isAdminPath && session.role !== 'admin') {
-    return NextResponse.redirect(new URL('/portal', request.url))
-  }
-
-  const response = NextResponse.next()
+async function attachMemberCookie(
+  request: NextRequest,
+  response: NextResponse,
+  session: VerifiedSession,
+): Promise<NextResponse> {
   const cookieMemberId = await verifyMemberToken(
     request.cookies.get(MEMBER_COOKIE)?.value,
   )
@@ -69,8 +73,46 @@ export async function proxy(request: NextRequest) {
   return response
 }
 
-// Only protect /portal and its sub-paths.
-// Excludes API routes, Next.js internals, and static assets.
+export async function proxy(request: NextRequest) {
+  const token = request.cookies.get(SESSION_COOKIE)?.value
+  const session = await verifySession(token)
+  const { pathname } = request.nextUrl
+
+  if (pathname.startsWith('/api/admin/')) {
+    if (!session || session.role !== 'admin') {
+      return unauthorizedJson()
+    }
+    const response = applySecurityHeaders(NextResponse.next())
+    response.headers.set('Cache-Control', 'private, no-store')
+    return response
+  }
+
+  if (pathname.startsWith('/api/portal/')) {
+    if (!session) {
+      return unauthorizedJson()
+    }
+    return continueWithSession(request, session)
+  }
+
+  if (!session) {
+    return applySecurityHeaders(
+      NextResponse.redirect(new URL('/', request.url)),
+    )
+  }
+
+  const isAdminPath =
+    pathname === '/portal/admin' || pathname.startsWith('/portal/admin/')
+  if (isAdminPath && session.role !== 'admin') {
+    return applySecurityHeaders(
+      NextResponse.redirect(new URL('/portal', request.url)),
+    )
+  }
+
+  const response = applySecurityHeaders(NextResponse.next())
+  response.headers.set('Cache-Control', 'private, no-store')
+  return attachMemberCookie(request, response, session)
+}
+
 export const config = {
-  matcher: ['/portal/:path*'],
+  matcher: ['/portal/:path*', '/api/portal/:path*', '/api/admin/:path*'],
 }

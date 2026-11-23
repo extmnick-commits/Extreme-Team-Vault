@@ -118,9 +118,11 @@ function NavLinkList({
 export default function PortalSidebar({
   children,
   isAdmin,
+  memberName,
 }: {
   children: React.ReactNode
   isAdmin: boolean
+  memberName?: string
 }) {
   const pathname = usePathname()
   const [collapsed, setCollapsed] = useState(false)
@@ -173,6 +175,11 @@ export default function PortalSidebar({
         <div className="flex flex-1 flex-col overflow-y-auto py-4">
           <NavLinks pathname={pathname} isAdmin={isAdmin} collapsed={collapsed} />
           <div className={`mt-auto px-3 pt-4 ${collapsed ? 'flex justify-center' : ''}`}>
+            {!collapsed && memberName && (
+              <p className="mb-2 truncate px-3 text-sm font-medium text-ink" title={memberName}>
+                Signed in as {memberName}
+              </p>
+            )}
             {!collapsed && (
               <p className="mb-3 px-3 text-xs leading-5 text-ink-subtle">
                 A little progress, every day.
@@ -236,6 +243,9 @@ export default function PortalSidebar({
             onNavigate={() => setMobileOpen(false)}
           />
           <div className="mt-auto px-3 pt-4 pb-[env(safe-area-inset-bottom)]">
+            {memberName && (
+              <p className="mb-2 truncate px-3 text-sm font-medium text-ink">Signed in as {memberName}</p>
+            )}
             <LogoutButton />
           </div>
         </div>

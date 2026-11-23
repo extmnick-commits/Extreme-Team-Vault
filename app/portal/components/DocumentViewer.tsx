@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { ChevronLeft, ChevronRight, Download, ExternalLink, FileText } from 'lucide-react'
+import { setMemberActivityHint } from '@/lib/client/memberActivityHint'
 import { bindHistoryFlush, queuePdfHistory } from '@/lib/client/historySync'
 import type { PdfLibrary } from '@/lib/libraryTypes'
 import PdfPageViewer from './PdfPageViewer'
@@ -240,6 +241,13 @@ function DesktopDocumentViewer({
   const persist = usePdfHistory(library, albumId)
   const restoreInitialPage = Boolean(initialDocumentId)
   const doc = documents[index]
+
+  useEffect(() => {
+    if (!doc) return
+    setMemberActivityHint({ kind: 'pdf', title: doc.title, detail: 'Reading' })
+    return () => setMemberActivityHint(null)
+  }, [doc])
+
   if (!doc) return null
 
   const hasPrev = index > 0

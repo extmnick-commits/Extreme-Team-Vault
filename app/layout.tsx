@@ -21,9 +21,10 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: "Extreme Team Vault",
   description: "Protected team portal",
-  icons: {
-    icon: "/pulido-power-house-logo.jpg",
-    apple: "/pulido-power-house-logo.jpg",
+  robots: {
+    index: false,
+    follow: false,
+    googleBot: { index: false, follow: false },
   },
 };
 

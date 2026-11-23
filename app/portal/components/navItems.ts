@@ -1,4 +1,5 @@
 import {
+  Activity,
   Archive,
   BookOpen,
   FileText,
@@ -28,7 +29,7 @@ export const NAV_ITEMS: NavItem[] = [
   {
     href: '/portal/live',
     label: 'Live Trainings & Opp Night',
-    description: 'Join upcoming live trainings and opportunity nights.',
+    description: 'Copy the Zoom link for live trainings and opportunity night.',
     icon: Radio,
   },
   {
@@ -69,5 +70,11 @@ export const ADMIN_NAV_ITEMS: NavItem[] = [
     label: 'Manage Files',
     description: 'Upload, organize, and edit documents, audio, and videos.',
     icon: FolderCog,
+  },
+  {
+    href: '/portal/admin/activity',
+    label: 'Member Activity',
+    description: 'See who is online and what they are watching or listening to.',
+    icon: Activity,
   },
 ]

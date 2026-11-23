@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { ArrowLeft, Loader2, Play } from 'lucide-react'
+import { setMemberActivityHint } from '@/lib/client/memberActivityHint'
 import { isAndroidBrowser } from '@/lib/mobileVideo'
 import type { VideoItem } from '@/lib/videoTypes'
 import PortalStreamVideo from './PortalStreamVideo'
@@ -30,6 +31,11 @@ export default function PortalDeviceWatch({ video, backHref }: PortalDeviceWatch
   useEffect(() => {
     setPlaybackMode(isAndroidBrowser() ? 'device' : 'inline')
   }, [])
+
+  useEffect(() => {
+    setMemberActivityHint({ kind: 'video', title: video.title, detail: 'Watching' })
+    return () => setMemberActivityHint(null)
+  }, [video.title])
 
   useEffect(() => {
     let cancelled = false

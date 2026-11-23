@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Clock, Download, ExternalLink, FileText, Play, X } from 'lucide-react'
+import { setMemberActivityHint } from '@/lib/client/memberActivityHint'
 import { isAndroidBrowser } from '@/lib/mobileVideo'
 import type { VideoItem, VideoLinkedDocument } from '@/lib/videoTypes'
 import PortalStreamVideo from './PortalStreamVideo'
@@ -51,6 +52,13 @@ export default function VideoModal({ video, onClose }: VideoModalProps) {
   useEffect(() => {
     setAndroid(isAndroidBrowser())
   }, [])
+
+  useEffect(() => {
+    setMemberActivityHint(
+      isPlaying ? { kind: 'video', title: video.title, detail: 'Watching' } : { kind: 'video', title: video.title },
+    )
+    return () => setMemberActivityHint(null)
+  }, [video.title, isPlaying])
 
   useEffect(() => {
     if (!android) return

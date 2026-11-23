@@ -11,6 +11,7 @@ import {
   saveTrackProgress,
   type ResumeSource,
 } from '@/lib/client/audioPlaybackStore'
+import { setMemberActivityHint } from '@/lib/client/memberActivityHint'
 import { bindHistoryFlush } from '@/lib/client/historySync'
 import AlbumArtwork from './AlbumArtwork'
 
@@ -72,6 +73,19 @@ export default function AlbumPlayer({
   const hasNext = index < tracks.length - 1
   const indexRef = useRef(index)
   indexRef.current = index
+
+  useEffect(() => {
+    if (!track || !playing) {
+      setMemberActivityHint(null)
+      return
+    }
+    setMemberActivityHint({
+      kind: 'audio',
+      title: `${track.title} · ${albumName}`,
+      detail: 'Listening',
+    })
+    return () => setMemberActivityHint(null)
+  }, [track, playing, albumName])
 
   useEffect(() => {
     if (initialTrackId || !albumId) return
