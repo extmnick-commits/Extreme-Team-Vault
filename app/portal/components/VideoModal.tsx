@@ -5,6 +5,7 @@ import { Clock, Download, ExternalLink, FileText, Play, X } from 'lucide-react'
 import { isAndroidBrowser } from '@/lib/mobileVideo'
 import type { VideoItem, VideoLinkedDocument } from '@/lib/videoTypes'
 import PortalStreamVideo from './PortalStreamVideo'
+import VideoDateLabel from './VideoDateLabel'
 import VideoPoster from './VideoPoster'
 import VideoThumbnailImage from './VideoThumbnailImage'
 
@@ -184,10 +185,17 @@ export default function VideoModal({ video, onClose }: VideoModalProps) {
               {video.title}
             </h2>
             <p className="text-sm text-ink-muted sm:text-base">{video.description}</p>
-            <span className="mt-1 flex items-center gap-1 text-xs text-ink-subtle tabular-nums">
-              <Clock className="size-3.5" aria-hidden="true" />
-              {video.duration}
-            </span>
+            <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-subtle tabular-nums">
+              <VideoDateLabel
+                dateUploaded={video.dateUploaded}
+                displayDate={video.displayDate}
+                showIcon
+              />
+              <span className="inline-flex items-center gap-1">
+                <Clock className="size-3.5" aria-hidden="true" />
+                {video.duration}
+              </span>
+            </div>
           </div>
           <button
             ref={desktopCloseRef}

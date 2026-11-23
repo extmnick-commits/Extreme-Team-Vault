@@ -1,6 +1,6 @@
 import 'server-only'
 import { createHash } from 'node:crypto'
-import { bunnyDateToIso } from './bunnyDates'
+import { bunnyDateToIso, formatVideoDisplayDate } from './bunnyDates'
 import {
   getAllVideoCategoryIds,
   getVideoCategoryLabelMap,
@@ -49,6 +49,7 @@ type ReadOptions = { fresh?: boolean }
 const API_BASE = 'https://video.bunnycdn.com/library'
 const TUS_EXPIRE_SECONDS = 6 * 60 * 60
 const DESCRIPTION_TAG = 'description'
+const PUBLISHED_AT_TAG = 'publishedAt'
 
 function readConfig(): StreamConfig | null {
   const libraryId = process.env.BUNNY_STREAM_LIBRARY_ID?.trim()
@@ -198,6 +199,17 @@ function descriptionOf(video: StreamVideo): string {
   return video.metaTags.find((tag) => tag.property === DESCRIPTION_TAG)?.value ?? ''
 }
 
+function publishedAtOf(video: StreamVideo): string | undefined {
+  const value = video.metaTags.find((tag) => tag.property === PUBLISHED_AT_TAG)?.value?.trim()
+  if (!value) return undefined
+  const iso = bunnyDateToIso(value)
+  return iso ?? (Number.isNaN(new Date(value).getTime()) ? undefined : new Date(value).toISOString())
+}
+
+function displayDateUploaded(video: StreamVideo): string | undefined {
+  return publishedAtOf(video) ?? video.dateUploaded
+}
+
 function toAdminVideo(
   video: StreamVideo,
   collections: Map<string, VideoCategory>,
@@ -217,7 +229,8 @@ function toAdminVideo(
       video.apiThumbnailUrl ??
       primaryStreamThumbnailUrl(libraryId, video.guid, thumbnailFileName, cdnUrl),
     thumbnailFileName,
-    dateUploaded: video.dateUploaded,
+    dateUploaded: displayDateUploaded(video),
+    displayDate: formatVideoDisplayDate(displayDateUploaded(video)),
     status: video.status,
     encodeProgress: video.encodeProgress,
   }
@@ -449,7 +462,13 @@ async function getVideo(videoId: string): Promise<StreamVideo> {
 
 export async function updateVideoDetails(
   videoId: string,
-  details: { title?: string; description?: string; category?: VideoCategory | null },
+  details: {
+    title?: string
+    description?: string
+    category?: VideoCategory | null
+    /** ISO timestamp for when the video should appear to have been published. */
+    publishedAt?: string | null
+  },
 ): Promise<void> {
   const current = await getVideo(videoId)
   let collections: Record<string, string> | null = null
@@ -463,9 +482,16 @@ export async function updateVideoDetails(
 
   let metaTags = current.metaTags
   if (details.description !== undefined) {
-    metaTags = current.metaTags.filter((tag) => tag.property !== DESCRIPTION_TAG)
+    metaTags = metaTags.filter((tag) => tag.property !== DESCRIPTION_TAG)
     if (details.description) {
       metaTags.push({ property: DESCRIPTION_TAG, value: details.description })
+    }
+  }
+
+  if (details.publishedAt !== undefined) {
+    metaTags = metaTags.filter((tag) => tag.property !== PUBLISHED_AT_TAG)
+    if (details.publishedAt) {
+      metaTags.push({ property: PUBLISHED_AT_TAG, value: details.publishedAt })
     }
   }
 

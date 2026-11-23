@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import { Play, Search, X } from 'lucide-react'
 import type { VideoItem } from '@/lib/videoTypes'
+import VideoDateLabel from './VideoDateLabel'
 import VideoModal from './VideoModal'
 import VideoPoster from './VideoPoster'
 
@@ -121,6 +122,7 @@ function FeaturedCard({
         <span className="text-base font-semibold text-ink md:text-2xl md:tracking-tight">
           {video.title}
         </span>
+        <VideoDateLabel dateUploaded={video.dateUploaded} displayDate={video.displayDate} />
         <span className="line-clamp-2 text-sm text-ink-muted md:line-clamp-3 md:text-base">
           {video.description}
         </span>
@@ -149,6 +151,7 @@ function VideoCard({
       />
       <div className="flex flex-col gap-1.5 p-4">
         <span className="line-clamp-2 font-semibold text-ink">{video.title}</span>
+        <VideoDateLabel dateUploaded={video.dateUploaded} displayDate={video.displayDate} />
         <span className="line-clamp-2 text-sm text-ink-muted">{video.description}</span>
       </div>
     </button>

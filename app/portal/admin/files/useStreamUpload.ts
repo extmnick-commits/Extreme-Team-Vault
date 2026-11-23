@@ -21,12 +21,19 @@ export function useStreamUpload() {
   return useCallback(
     async (
       file: File,
-      options: { title: string; category: VideoCategory; thumbnail?: File },
+      options: {
+        title: string
+        category: VideoCategory
+        thumbnail?: File
+        /** `YYYY-MM-DD` for portal display and “new” badges. */
+        dateUploaded?: string
+      },
       onProgress?: (percentage: number) => void,
     ): Promise<void> => {
       const created = await createStreamUpload({
         title: options.title,
         category: options.category,
+        dateUploaded: options.dateUploaded,
       })
       if (!created.ok) throw new Error(created.error)
 

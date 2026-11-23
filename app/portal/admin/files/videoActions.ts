@@ -2,6 +2,7 @@
 
 import { revalidatePath, updateTag } from 'next/cache'
 import { requireAdmin } from '@/app/lib/session'
+import { calendarDateToIso } from '@/lib/bunnyDates'
 import {
   createVideo,
   deleteVideo as deleteStreamVideo,
@@ -78,6 +79,8 @@ export type CreateStreamUploadResult =
 export async function createStreamUpload(input: {
   title: string
   category: VideoCategory
+  /** HTML date input value (`YYYY-MM-DD`). */
+  dateUploaded?: string
 }): Promise<CreateStreamUploadResult> {
   try {
     await requireAdmin()
@@ -85,7 +88,18 @@ export async function createStreamUpload(input: {
     const title = cleanText(input.title, MAX_VIDEO_TITLE_LENGTH)
     if (!title) throw new ValidationError('Title is required.')
 
+    const publishedAt =
+      typeof input.dateUploaded === 'string' && input.dateUploaded.trim()
+        ? calendarDateToIso(input.dateUploaded)
+        : undefined
+    if (input.dateUploaded?.trim() && !publishedAt) {
+      throw new ValidationError('Enter a valid date.')
+    }
+
     const { libraryId, videoId } = await createVideo(title, category)
+    if (publishedAt) {
+      await updateVideoDetails(videoId, { publishedAt })
+    }
     const { expire, signature } = signTusUpload(videoId)
     await revalidateVideos()
     return { ok: true, libraryId, videoId, expire, signature }

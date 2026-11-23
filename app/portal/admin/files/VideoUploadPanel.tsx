@@ -21,11 +21,21 @@ type QueueItem = {
   key: string
   file: File
   title: string
+  /** `YYYY-MM-DD` — shown in the portal and used for “new” badges. */
+  dateUploaded: string
   thumbnail?: File
   thumbnailPreview?: string
   status: QueueStatus
   progress: number
   error?: string
+}
+
+function todayDateInputValue(): string {
+  const now = new Date()
+  const y = now.getFullYear()
+  const m = String(now.getMonth() + 1).padStart(2, '0')
+  const d = String(now.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
 }
 
 function allUploadCategoryIds(customCategories: CustomVideoCategory[]): VideoCategory[] {
@@ -90,6 +100,7 @@ export default function VideoUploadPanel({
         key: `${file.name}-${file.size}-${file.lastModified}-${Math.random()}`,
         file,
         title: '',
+        dateUploaded: todayDateInputValue(),
         status: error ? 'error' : 'pending',
         progress: 0,
         error,
@@ -104,7 +115,12 @@ export default function VideoUploadPanel({
     try {
       await uploadVideo(
         item.file,
-        { title, category, thumbnail: item.thumbnail },
+        {
+          title,
+          category,
+          thumbnail: item.thumbnail,
+          dateUploaded: item.dateUploaded.trim() || undefined,
+        },
         (progress) => patch(item.key, { progress }),
       )
       patch(item.key, { status: 'done', progress: 100 })
@@ -132,8 +148,9 @@ export default function VideoUploadPanel({
         <div>
           <h2 className="text-lg font-semibold text-ink">Upload videos</h2>
           <p className="text-sm text-ink-muted">
-            MP4, MOV, or WebM, up to 5 GB each. Add an optional JPG, PNG, or WebP thumbnail per
-            video for the training, archive, guest speaker, and event galleries.
+            MP4, MOV, or WebM, up to 5 GB each. Set a date per video (defaults to today) for
+            sorting and “new” badges—useful for archive uploads. Optional JPG, PNG, or WebP
+            thumbnail per video.
           </p>
         </div>
         <label className="flex flex-col gap-1.5 text-xs font-medium uppercase tracking-wide text-ink-muted">
@@ -213,14 +230,26 @@ export default function VideoUploadPanel({
                   {item.file.name}
                 </span>
                 {item.status === 'pending' ? (
-                  <input
-                    type="text"
-                    value={item.title}
-                    onChange={(e) => patch(item.key, { title: e.target.value })}
-                    disabled={running}
-                    placeholder="Title (optional, defaults to file name)"
-                    className="rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm text-ink placeholder-zinc-400 outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
-                  />
+                  <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center">
+                    <input
+                      type="text"
+                      value={item.title}
+                      onChange={(e) => patch(item.key, { title: e.target.value })}
+                      disabled={running}
+                      placeholder="Title (optional, defaults to file name)"
+                      className="min-w-0 flex-1 rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm text-ink placeholder-zinc-400 outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+                    />
+                    <label className="flex shrink-0 items-center gap-2 text-xs text-ink-muted">
+                      <span className="font-medium uppercase tracking-wide">Date</span>
+                      <input
+                        type="date"
+                        value={item.dateUploaded}
+                        onChange={(e) => patch(item.key, { dateUploaded: e.target.value })}
+                        disabled={running}
+                        className="rounded-md border border-line bg-surface px-2 py-1.5 text-sm normal-case tracking-normal text-ink outline-none focus:border-violet-400 focus:ring-2 focus:ring-violet-100"
+                      />
+                    </label>
+                  </div>
                 ) : (
                   (item.status === 'uploading' || item.status === 'processing') && (
                     <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-200">

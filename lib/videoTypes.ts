@@ -102,8 +102,10 @@ export type VideoItem = {
   /** Bunny Stream thumbnail file name (e.g. thumbnail.jpg). Used for CDN fallback URLs. */
   thumbnailFileName?: string
   linkedDocuments?: VideoLinkedDocument[]
-  /** ISO timestamp from Bunny Stream dateUploaded when available. */
+  /** ISO timestamp for sorting and badges (admin “Date” or Bunny upload time). */
   dateUploaded?: string
+  /** Preformatted portal date (`Nov 1, 2026`) — set on the server to avoid hydration drift. */
+  displayDate?: string
 }
 
 export const MAX_VIDEO_ATTACHMENT_LABEL_LENGTH = 120
