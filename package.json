@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "firestore:deploy": "npx -y firebase-tools@latest deploy --only firestore"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -14,6 +15,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@vercel/blob": "^2.8.0",
     "@zoom/meetingsdk": "^6.5.0",
+    "firebase-admin": "^14.5.1",
     "jose": "^6.2.12",
     "jszip": "^3.10.2",
     "lodash": "^4.18.1",

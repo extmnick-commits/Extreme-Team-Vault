@@ -44,6 +44,7 @@ const nextConfig: NextConfig = {
     ]
   },
   allowedDevOrigins: devAllowedOrigins(),
+  serverExternalPackages: ['firebase-admin'],
   transpilePackages: ['@zoom/meetingsdk'],
   turbopack: {
     resolveAlias: {

@@ -1,0 +1,37 @@
+rules_version = '2';
+
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// All reads and writes go through the Firebase Admin SDK on the
+// server. Admin SDK bypasses these rules. Clients have no Firebase
+// config and must not read or write these collections.
+//
+// Collection: vaultPresence
+// Document ID: member UUID
+// Fields:
+//   - memberId: string (required)
+//   - displayName: string (optional, max 80)
+//   - role: string "admin" | "member" (required)
+//   - lastSeenAt: string ISO-8601 (required)
+//   - path: string (required, max 300)
+//   - activity.kind: string video|audio|pdf|browsing|idle (optional)
+//   - activity.title: string (optional, max 240)
+//   - activity.detail: string (optional, max 120)
+//
+// Collection: vaultMemberHistory
+// Document ID: member UUID
+// Fields:
+//   - updatedAt: string ISO-8601 (required) — recency index
+//   - body: string JSON (required) — audio and PDF playback history
+//
+// ===============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -1,5 +1,4 @@
 import 'server-only'
-import { list } from '@vercel/blob'
 import { getLibrary } from './bunnyStorage'
 import { getTrainingLibraryVideos } from './bunnyStream'
 import {
@@ -8,10 +7,14 @@ import {
   type MemberActivityKind,
   type MemberPresence,
 } from './memberPresence'
-import { readMemberHistory, type AudioHistoryEntry, type PdfHistoryEntry } from './memberHistory'
+import {
+  listRecentlyUpdatedMemberIds,
+  readMemberHistory,
+  type AudioHistoryEntry,
+  type PdfHistoryEntry,
+} from './memberHistory'
 import type { LibraryGroup, LibraryView } from './libraryTypes'
 
-const HISTORY_PREFIX = 'member-history/'
 const MAX_HISTORY_FILES = 40
 
 export type AdminActivityMember = {
@@ -173,20 +176,11 @@ export async function buildAdminActivityReport(): Promise<AdminActivityReport> {
     })
   }
 
-  const { blobs } = await list({ prefix: HISTORY_PREFIX, limit: 200 })
-  const sorted = [...blobs].sort((a, b) => {
-    const bTime = b.uploadedAt ? new Date(b.uploadedAt).getTime() : 0
-    const aTime = a.uploadedAt ? new Date(a.uploadedAt).getTime() : 0
-    return bTime - aTime
-  })
-  const scan = sorted.slice(0, MAX_HISTORY_FILES)
-
+  const memberIds = await listRecentlyUpdatedMemberIds(MAX_HISTORY_FILES)
   const recent: AdminRecentActivity[] = []
 
   await Promise.all(
-    scan.map(async (blob) => {
-      const memberId = blob.pathname.slice(HISTORY_PREFIX.length).replace(/\.json$/, '')
-      if (!memberId) return
+    memberIds.map(async (memberId) => {
       const history = await readMemberHistory(memberId)
       const audio = latestAudio(history.audio)
       if (audio) {
@@ -225,6 +219,6 @@ export async function buildAdminActivityReport(): Promise<AdminActivityReport> {
     generatedAt: new Date().toISOString(),
     activeNow,
     recent: bounded,
-    historyMembersScanned: scan.length,
+    historyMembersScanned: memberIds.length,
   }
 }

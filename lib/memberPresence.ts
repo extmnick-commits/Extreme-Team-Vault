@@ -1,9 +1,8 @@
 import 'server-only'
-import { get, list, put } from '@vercel/blob'
 import type { SessionRole } from '@/app/lib/session'
-import { getBlobAccess } from './blobAccess'
+import { getVaultFirestore } from './firebaseAdmin'
 
-export const PRESENCE_PREFIX = 'member-presence/'
+export const PRESENCE_COLLECTION = 'vaultPresence'
 export const ACTIVE_NOW_MS = 5 * 60 * 1000
 
 export type MemberActivityKind = 'video' | 'audio' | 'pdf' | 'browsing' | 'idle'
@@ -19,10 +18,6 @@ export type MemberPresence = {
     title?: string
     detail?: string
   }
-}
-
-function presencePath(memberId: string): string {
-  return `${PRESENCE_PREFIX}${memberId}.json`
 }
 
 export function parseMemberPresence(value: unknown, memberId: string): MemberPresence | null {
@@ -56,37 +51,16 @@ export function parseMemberPresence(value: unknown, memberId: string): MemberPre
 }
 
 export async function writeMemberPresence(presence: MemberPresence): Promise<void> {
-  await put(presencePath(presence.memberId), JSON.stringify(presence), {
-    access: getBlobAccess(),
-    addRandomSuffix: false,
-    allowOverwrite: true,
-    contentType: 'application/json',
-    cacheControlMaxAge: 30,
-  })
+  const stored = JSON.parse(JSON.stringify(presence)) as MemberPresence
+  await getVaultFirestore().collection(PRESENCE_COLLECTION).doc(presence.memberId).set(stored)
 }
 
 export async function listMemberPresence(): Promise<MemberPresence[]> {
-  const { blobs } = await list({ prefix: PRESENCE_PREFIX, limit: 500 })
+  const snap = await getVaultFirestore().collection(PRESENCE_COLLECTION).get()
   const rows: MemberPresence[] = []
-
-  await Promise.all(
-    blobs.map(async (blob) => {
-      const memberId = blob.pathname.slice(PRESENCE_PREFIX.length).replace(/\.json$/, '')
-      if (!memberId) return
-      try {
-        const result = await get(blob.pathname, {
-          access: getBlobAccess(),
-          useCache: false,
-        })
-        if (!result || result.statusCode !== 200 || !result.stream) return
-        const text = await new Response(result.stream).text()
-        const parsed = parseMemberPresence(JSON.parse(text) as unknown, memberId)
-        if (parsed) rows.push(parsed)
-      } catch {
-        // skip broken blob
-      }
-    }),
-  )
-
+  for (const doc of snap.docs) {
+    const parsed = parseMemberPresence(doc.data(), doc.id)
+    if (parsed) rows.push(parsed)
+  }
   return rows.sort((a, b) => b.lastSeenAt.localeCompare(a.lastSeenAt))
 }

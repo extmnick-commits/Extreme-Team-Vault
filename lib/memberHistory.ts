@@ -1,7 +1,8 @@
 import 'server-only'
-import { get, put } from '@vercel/blob'
-import { getBlobAccess } from './blobAccess'
+import { getVaultFirestore } from './firebaseAdmin'
 import { isPdfLibrary, type PdfLibrary } from './libraryTypes'
+
+export const HISTORY_COLLECTION = 'vaultMemberHistory'
 
 export const MEMBER_HISTORY_VERSION = 1 as const
 export const MAX_AUDIO_HISTORY = 50
@@ -38,10 +39,6 @@ export function emptyMemberHistory(): MemberHistory {
 
 export function pdfHistoryKey(library: PdfLibrary, documentId: string): string {
   return `${library}:${documentId}`
-}
-
-function historyPath(memberId: string): string {
-  return `member-history/${memberId}.json`
 }
 
 function isIsoDate(value: unknown): value is string {
@@ -141,22 +138,13 @@ export function pruneHistory(history: MemberHistory): MemberHistory {
   }
 }
 
-async function streamToText(stream: ReadableStream<Uint8Array>): Promise<string> {
-  return new Response(stream).text()
-}
-
 export async function readMemberHistory(memberId: string): Promise<MemberHistory> {
   try {
-    const result = await get(historyPath(memberId), {
-      access: getBlobAccess(),
-      useCache: false,
-    })
-    if (!result || result.statusCode !== 200 || !result.stream) {
-      return emptyMemberHistory()
-    }
-    const text = await streamToText(result.stream)
-    if (!text.trim()) return emptyMemberHistory()
-    return parseMemberHistory(JSON.parse(text) as unknown)
+    const snap = await getVaultFirestore().collection(HISTORY_COLLECTION).doc(memberId).get()
+    if (!snap.exists) return emptyMemberHistory()
+    const body = snap.data()?.body
+    if (typeof body !== 'string' || !body.trim()) return emptyMemberHistory()
+    return parseMemberHistory(JSON.parse(body) as unknown)
   } catch (error) {
     console.error('[memberHistory] Failed to read history:', error)
     return emptyMemberHistory()
@@ -168,13 +156,19 @@ export async function writeMemberHistory(
   history: MemberHistory,
 ): Promise<void> {
   const pruned = pruneHistory(history)
-  await put(historyPath(memberId), JSON.stringify(pruned), {
-    access: getBlobAccess(),
-    addRandomSuffix: false,
-    allowOverwrite: true,
-    contentType: 'application/json',
-    cacheControlMaxAge: 60,
+  await getVaultFirestore().collection(HISTORY_COLLECTION).doc(memberId).set({
+    updatedAt: new Date().toISOString(),
+    body: JSON.stringify(pruned),
   })
+}
+
+export async function listRecentlyUpdatedMemberIds(limit = 40): Promise<string[]> {
+  const snap = await getVaultFirestore()
+    .collection(HISTORY_COLLECTION)
+    .orderBy('updatedAt', 'desc')
+    .limit(limit)
+    .get()
+  return snap.docs.map((doc) => doc.id)
 }
 
 export async function upsertAudioHistory(
